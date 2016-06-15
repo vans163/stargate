@@ -1,7 +1,6 @@
 -module(stargate).
 
 -export([warpin/0, warpin/1]).
--export([test/0]).
 
 -include("global.hrl").
 

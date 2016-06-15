@@ -69,6 +69,8 @@ handle_info(Message, S) ->
 
 
 terminate({shutdown, tcp_closed}, S) -> ok;
-terminate(_Reason, S) -> ?PRINT({"Terminated", _Reason, S}).
+terminate(_Reason, S) -> 
+    ?PRINT({"Terminated", _Reason, S})
+    .
 
 code_change(_OldVersion, S, _Extra) -> {ok, S}. 

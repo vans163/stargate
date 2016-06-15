@@ -1,5 +1,5 @@
 # stargate
-Erlang high performance webserver
+Erlang customizable webserver
 
 <img src="http://i.imgur.com/8vmU7W4.jpg" width="960" height="600" />
 

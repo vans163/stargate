@@ -18,11 +18,11 @@ Websockets
 ### Example
 ```erlang
 %Listen on all interfaces for any request on port 80
-stargate:warpin().
+stargate:warp_in().
 
 %Listen on port 80 on interface "120.1.1.1"
 %Route Host paths to appropriate erlang modules
-stargate:warpin(
+stargate:warp_in(
   #{
       port=> 80,
       ip=> {120,1,1,1},

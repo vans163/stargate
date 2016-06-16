@@ -23,7 +23,7 @@ init({Paths, Socket}) ->
 
 handle_cast({pass_socket, ClientSocket}, S) ->
     inet:setopts(ClientSocket, [{active, once}, {packet, http_bin}]),
-    {noreply, S};
+    {noreply, S#{socket=> ClientSocket}};
 
 handle_cast(Message, S) -> {noreply, S}.
 handle_call(Message, From, S) -> {reply, ok, S}.
@@ -35,7 +35,8 @@ handle_info({http, Socket, {http_request, Type, {abs_path, Path}, HttpVer}}, S=#
     {HttpHeaders, Body} = proto_http:recv(Socket),
 
     Host = maps:get('Host', HttpHeaders, <<"*">>),
-    HandlerAtom = maps:get(Host, Paths, ?HANDLER_WILDCARD),
+    WildCardAtom = maps:get(<<"*">>, Paths),
+    HandlerAtom = maps:get(Host, Paths, WildCardAtom),
 
     {CleanPath, Query} = proto_http:path_and_query(Path),
 

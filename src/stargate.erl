@@ -38,7 +38,7 @@ start_link(Params) ->
 
     gen_server:start_link(?MODULE, Params, []).
 
-init(#{ip:=BindIp, port:=BindPort, params:=Params}) ->
+init(#{ip:=BindIp, port:=BindPort, paths:=Params}) ->
     listen(BindIp, BindPort),
     {ok, #{params=> Params}}.
     

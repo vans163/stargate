@@ -22,7 +22,7 @@ stargate:warp_in().
 
 %Listen on port 80 on interface "120.1.1.1"
 %Route Host paths to appropriate erlang modules
-stargate:warp_in(
+stargate:start_link(
   #{
       port=> 80,
       ip=> {120,1,1,1},

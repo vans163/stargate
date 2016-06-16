@@ -27,16 +27,19 @@ ensure_wildcard(Paths) ->
         undefined -> maps:put(<<"*">>, ?HANDLER_WILDCARD, Paths);
         _ -> Paths
     end.
-%%%%%%
-
-
-start_link(Params) ->
+    
+fix_params(Params) ->
     Port = maps:get(port, Params),
     Ip = maps:get(ip, Params),
     Paths = maps:get(paths, Params),
     Paths2 = ensure_wildcard(Paths),
+    maps:put(paths, Paths2, Params).
+%%%%%%
 
-    gen_server:start_link(?MODULE, Params, []).
+
+start_link(Params) ->
+         Params2 = fix_params(Params),
+         gen_server:start_link(?MODULE, Params2, []).
 
 init(#{ip:=BindIp, port:=BindPort, paths:=Params}) ->
     listen(BindIp, BindPort),

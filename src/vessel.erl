@@ -35,9 +35,24 @@ handle_info({http, Socket, {http_request, Type, {abs_path, Path}, HttpVer}}, S=#
     {HttpHeaders, Body} = proto_http:recv(Socket),
 
     Host = maps:get('Host', HttpHeaders, <<"*">>),
-    HandlerAtom = maps:get(Host, Paths, ?HANDLER_WILDCARD),
-
+    HandlerAtom = maps:get(Host, Paths),
     {CleanPath, Query} = proto_http:path_and_query(Path),
+
+    Upgrade = maps:get('Upgrade', HttpHeaders, undefined),
+    case Upgrade of
+        <<"websocket">> ->
+            WSHandlerAtom = maps:get(Host, Paths),
+
+            WSVersion = maps:get(<<"Sec-Websocket-Version">>, HttpHeaders),
+            ?PRINT({WSVersion}),
+            true = proto_ws:check_version(WSVersion),
+            WSKey = maps:get(<<"Sec-Websocket-Key">>, HttpHeaders),
+            WSExtensions = maps:get(<<"Sec-Websocket-Extensions">>, HttpHeaders, <<"">>),
+            WSResponseBin = proto_ws:handshake(WSKey),
+            ok = gen_tcp:send(Socket, WSResponseBin);
+
+        undefined -> pass
+    end,
 
     {ResponseCode, ResponseHeaders, ResponseBody, SessState2} = 
         apply(HandlerAtom, http, 

@@ -7,7 +7,7 @@
 -export([response/3]).
 -export([path_and_query/1]).
 
--include("global.hrl").
+-include("../global.hrl").
 
 recv(Socket) ->
     HttpHeaders = recv_headers(Socket),
@@ -69,8 +69,16 @@ path_and_query(Path) ->
 
 response(Code, B, C) when is_integer(Code) -> response(integer_to_binary(Code), B, C);
 response(Code, Headers, Body) ->
-    Headers2 = maps:put(<<"Connection">>, <<"close">>, Headers),
-    HeadersFinal = maps:put(<<"Content-Length">>, integer_to_binary(size(Body)), Headers),
+    Headers2 = case maps:get(<<"Connection">>, Headers, undefined) of
+        undefined -> maps:put(<<"Connection">>, <<"close">>, Headers);
+        Exists -> Exists
+    end,
+    
+    BodySize = integer_to_binary(size(Body)),
+    HeadersFinal = case BodySize of
+        0 -> Headers;
+        _ -> maps:put(<<"Content-Length">>, BodySize, Headers)
+    end,
 
     Bin = <<"HTTP/1.1 ", Code/binary, " ", (response_code(Code))/binary, "\r\n">>,
     HeaderBin = maps:fold(fun(K,V,Acc) ->

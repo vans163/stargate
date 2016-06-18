@@ -1,5 +1,6 @@
 
 -define(HANDLER_WILDCARD, handler_wildcard).
+-define(HANDLER_WILDCARD_WS, handler_wildcard_ws).
 
 -define(TIMEOUT, 30000).
 -define(MAX_TCP_TIMEOUT, 120000).

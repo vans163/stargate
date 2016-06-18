@@ -16,9 +16,10 @@
 %%%%%%
 warp_in() ->
     start_link(#{
-            port=> 80,
+            port=> 8000,
             ip=> {0,0,0,0},
-            paths=> #{<<"*">>=> ?HANDLER_WILDCARD}
+            paths=> #{<<"*">>=> ?HANDLER_WILDCARD},
+            ws_paths=> #{<<"*">>=> ?HANDLER_WILDCARD_WS}
         }
     ).
 

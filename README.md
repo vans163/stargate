@@ -16,6 +16,19 @@ zlib (GZIP)
 HTTPS  
 ~~Websockets~~  
 
+### Websockets
+Keep-alives are sent from server automatically  
+Defaults are in global.hrl  
+Max sizes protect vs DDOS  
+
+```erlang
+-define(MAX_TCP_TIMEOUT, 120000).
+
+-define(MAX_WS_PAYLOAD_SIZE, 16000).
+-define(MAX_WS_BUFFER_SIZE, 64000).
+-define(WS_PING_INTERVAL, 15000).
+```
+
 ### Example
 ```erlang
 %Listen on all interfaces for any non-ssl request /w websocket on port 8000
@@ -57,7 +70,6 @@ http('GET', <<"/click">>, #{...}=Query, #{...}=HttpHeaders, <<Body>>, #{...}=S) 
 %
 % HTTP/1.1 200 OK\r\n
 % \r\n
-
 
 
 %google_adwords_ws module example

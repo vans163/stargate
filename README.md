@@ -56,7 +56,21 @@ http('GET', <<"/click">>, #{...}=Query, #{...}=HttpHeaders, <<Body>>, #{...}=S) 
 % Response payload:
 %
 % HTTP/1.1 200 OK\r\n
-% Content-Length: 0\r\n
 % \r\n
 
+
+
+%google_adwords_ws module example
+-module(google_adwords_ws).
+
+-export([connect/1, disconnect/1]).
+-export([msg/2]).
+
+connect(S) -> 
+  Socket = maps:get(socket, S)
+  S.
+
+disconnect(S) -> pass.
+
+msg(Bin, S) -> S.
 ```

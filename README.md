@@ -8,28 +8,34 @@ Work in progress.
 
 ### Current Features
 Simple support for HTTP  
+Websockets
 
 ### Roadmap
 hot-loading new paths  
 zlib (GZIP)  
 HTTPS  
-Websockets  
+~~Websockets~~  
 
 ### Example
 ```erlang
-%Listen on all interfaces for any request on port 80
-stargate:warpin().
+%Listen on all interfaces for any non-ssl request /w websocket on port 8000
+%Dumps all http and websocket requests to default handlers
+stargate:warp_in().
 
 %Listen on port 80 on interface "120.1.1.1"
-%Route Host paths to appropriate erlang modules
-stargate:warpin(
+%No ssl
+%Host paths to appropriate erlang modules
+stargate:start_link(
   #{
       port=> 80,
       ip=> {120,1,1,1},
-      paths=> #{
-          <<"adwords.google.com">>=> google_adwords,
-          <<"tracker.google.com">>=> google_tracker,
-          <<"google.com">>=> google_website
+      ssl=> false,
+      hosts=> #{
+          {http, <<"adwords.google.com">>}=> {google_adwords, []},
+          {http, <<"tracker.google.com">>}=> {google_tracker, []},
+          {http, <<"google.com">>}=> {google_website, []},
+
+          {ws, <<"adwords.google.com">>}=> {google_adwords_ws, []}
       }
   }
 )

@@ -18,28 +18,43 @@ warp_in() ->
     start_link(#{
             port=> 8000,
             ip=> {0,0,0,0},
-            paths=> #{<<"*">>=> ?HANDLER_WILDCARD},
-            ws_paths=> #{<<"*">>=> ?HANDLER_WILDCARD_WS}
+            ssl=> false,
+            hosts=> #{
+                {http, <<"*">>}=> {?HANDLER_WILDCARD, []},
+                {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, []}
+            }
         }
     ).
 
-ensure_wildcard(Paths) ->
-    case maps:get(<<"*">>, Paths, undefined) of
-        undefined -> maps:put(<<"*">>, ?HANDLER_WILDCARD, Paths);
-        _ -> Paths
-    end.
+ensure_wildcard(Hosts, false) ->
+    Hosts2 = ensure_wildcard({http, <<"*">>}, ?HANDLER_WILDCARD, Hosts),
+    Hosts3 = ensure_wildcard({ws, <<"*">>}, ?HANDLER_WILDCARD_WS, Hosts)
+    ;
+ensure_wildcard(Hosts, true) ->
+    Hosts2 = ensure_wildcard({https, <<"*">>}, ?HANDLER_WILDCARD, Hosts),
+    Hosts3 = ensure_wildcard({wss, <<"*">>}, ?HANDLER_WILDCARD_WS, Hosts)
+    .
+ensure_wildcard(Key, Handler, Hosts) ->
+    case maps:get(Key, Hosts, undefined) of
+        undefined -> maps:put(Key, {Handler, []}, Hosts);
+        _ -> Hosts
+    end
+    .
+
+fix_params(Params) ->
+    Port = maps:get(port, Params),
+    Ip = maps:get(ip, Params),
+    Ssl = maps:get(ssl, Params),
+    Hosts = maps:get(hosts, Params),
+
+    Hosts2 = ensure_wildcard(Hosts, Ssl),
+    maps:put(hosts, Hosts2, Params).
 %%%%%%
 
 
-start_link(Params) ->
-    Port = maps:get(port, Params),
-    Ip = maps:get(ip, Params),
-    Paths = maps:get(paths, Params),
-    Paths2 = ensure_wildcard(Paths),
+start_link(Params) -> gen_server:start_link(?MODULE, fix_params(Params), []).
 
-    gen_server:start_link(?MODULE, Params, []).
-
-init(#{ip:=BindIp, port:=BindPort, paths:=Params}) ->
+init(Params=#{ip:=BindIp, port:=BindPort}) ->
     listen(BindIp, BindPort),
     {ok, #{params=> Params}}.
     

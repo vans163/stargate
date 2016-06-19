@@ -79,7 +79,20 @@ http('GET', <<"/click">>, #{...}=Query, #{...}=HttpHeaders, <<Body>>, #{...}=S) 
 -export([msg/2]).
 
 connect(S) -> 
-  Socket = maps:get(socket, S)
+  Socket = maps:get(socket, S),
+
+  Bin1 = proto_ws:encode_frame(<<"hello">>),
+  ok = gen_tcp:send(Socket, Bin1),
+
+  Bin2 = proto_ws:encode_frame("hello"),
+  ok = gen_tcp:send(Socket, Bin2),
+
+  Bin3 = proto_ws:encode_frame(<<1,2,3,4>>, bin),
+  ok = gen_tcp:send(Socket, Bin3),
+
+  Bin4 = proto_ws:encode_frame(<<>, close),
+  ok = gen_tcp:send(Socket, Bin4),
+
   S.
 
 disconnect(S) -> pass.

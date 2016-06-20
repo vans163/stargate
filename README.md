@@ -53,10 +53,11 @@ Max sizes protect vs DDOS
 ### Example
 ```erlang
 %Listen on all interfaces for any non-ssl request /w websocket on port 8000
+% SSL requests on port 8443  ./priv/cert.pem   ./priv/key.pem  
 stargate:warp_in().
 
 %Listen on port 8000 on all interfaces
-%Host paths to appropriate erlang modules
+%Hosts map to appropriate erlang modules
 stargate:start_link(
   #{
       port=> 8000,
@@ -118,9 +119,9 @@ http('GET', <<"/click">>, #{...}=Query, #{...}=HttpHeaders, <<Body>>, #{...}=S) 
 % HTTP/1.1 200 OK\r\n
 % Connection: close\r\n
 % \r\n
+```
 
-
-
+```erlang
 %google_adwords_ws module example
 -module(google_adwords_ws).
 
@@ -145,7 +146,6 @@ connect(S) ->
   S.
 
 disconnect(S) -> pass.
-
 msg(Bin, S) -> S.
 ```
 

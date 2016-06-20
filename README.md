@@ -19,6 +19,24 @@ Work in progress.
 - ~~Websockets~~  
   - Compression  
 
+### Thinness
+```
+git ls-files | grep -P ".*(erl|hrl)" | xargs wc -l
+
+   38 src/global.hrl
+   12 src/handler_wildcard.erl
+   21 src/handler_wildcard_ws.erl
+  164 src/proto/proto_http.erl
+  108 src/proto/proto_ws.erl
+  101 src/stargate.erl
+  205 src/vessel.erl
+
+  649 total
+```
+
+Stargate is currently 649 lines of code.
+
+
 ### Websockets
 Keep-alives are sent from server automatically  
 Defaults are in global.hrl  

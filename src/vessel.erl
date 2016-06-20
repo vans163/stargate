@@ -125,9 +125,9 @@ handle_http(Headers, Body, S=#{
 
 
 %%% HTTP / Negotiate Websockets
-handle_info({Proto, Socket, {http_request, Type, {abs_path, Path}, HttpVer}}, S=#{
+handle_info({T, Socket, {http_request, Type, {abs_path, Path}, HttpVer}}, S=#{
     session_state:= SessState
-}) when Proto == http; Proto == ssl ->
+}) when T == http; T == ssl ->
     %Type = 'GET'/'POST'/'ETC'
     {HttpHeaders, Body} = proto_http:recv(Socket),
     S2 = handle_http(HttpHeaders, Body, S#{
@@ -139,8 +139,8 @@ handle_info({Proto, Socket, {http_request, Type, {abs_path, Path}, HttpVer}}, S=
 
 
 %%% Websockets
-handle_info({Proto, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) 
-when Proto == tcp; Proto == ssl->
+handle_info({T, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) 
+when T == tcp; T == ssl->
     S3 = case proto_ws:decode_frame(<<WSBuf/binary, Bin/binary>>) of
         %pong
         {ok, 10, _, Buffer} ->
@@ -182,7 +182,7 @@ handle_info(stalled, S=#{nextDc:= NextDc}) ->
         true -> {noreply, S}
     end;
 
-handle_info({Proto, Socket}, S) when Proto == tcp_closed; Proto == ssl_closed ->
+handle_info({T, Socket}, S) when T == tcp_closed; T == ssl_closed ->
     %WS / WSS
     case maps:get(ws_handler, S, undefined) of
         undefined -> pass;

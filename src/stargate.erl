@@ -37,7 +37,7 @@ warp_in() ->
             }
         }
     ).
-    %openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 100 -nodes -subj '/CN=localhost'
+%openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 100 -nodes -subj '/CN=localhost'
 
 ensure_wildcard(Hosts) ->
     Hosts2 = ensure_wildcard({http, <<"*">>}, ?HANDLER_WILDCARD, Hosts),
@@ -97,7 +97,5 @@ handle_info({inet_async, ListenSocket, _, {ok, ClientSocket}}, S=#{params:= Para
 handle_info(Message, S) -> {noreply, S}.
 
 
-terminate(_Reason, S) ->
-    ?PRINT({"WTF we died"}),
-    io:format("~p:~p - ~p~n", [?MODULE, ?LINE, {"Terminated", _Reason, S}]).
+terminate(_Reason, S) -> ?PRINT({"Stargate terminated:", _Reason, S}).
 code_change(_OldVersion, S, _Extra) -> {ok, S}. 

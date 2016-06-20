@@ -6,7 +6,9 @@
 -include("global.hrl").
 
 connect(S) ->
-    ?PRINT({"WS_Unhandled: Connect"}),
+    Socket = maps:get(socket, S),
+    {ok, {SourceAddr, _}} = transport_peername(Socket),
+    ?PRINT({"WS_Unhandled: Connect", SourceAddr}),
     S
     .
 

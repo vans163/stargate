@@ -8,13 +8,16 @@ Work in progress.
 
 ### Current Features
 Simple support for HTTP  
-Websockets
+Websockets  
+SSL  
 
 ### Roadmap
 hot-loading new paths  
 zlib (GZIP)  
-HTTPS  
+~~SSL~~  
+* SNI  
 ~~Websockets~~  
+* Compression  
 
 ### Websockets
 Keep-alives are sent from server automatically  
@@ -32,16 +35,14 @@ Max sizes protect vs DDOS
 ### Example
 ```erlang
 %Listen on all interfaces for any non-ssl request /w websocket on port 8000
-%Dumps all http and websocket requests to default handlers
 stargate:warp_in().
 
-%Listen on port 80 on interface "120.1.1.1"
-%No ssl
+%Listen on port 8000 on all interfaces
 %Host paths to appropriate erlang modules
 stargate:start_link(
   #{
-      port=> 80,
-      ip=> {120,1,1,1},
+      port=> 8000,
+      ip=> {0,0,0,0},
       ssl=> false,
       hosts=> #{
           {http, <<"adwords.google.com">>}=> {google_adwords, []},
@@ -53,6 +54,34 @@ stargate:start_link(
   }
 )
 
+
+%SSL example
+
+%generate key+cert
+%openssl req -x509 -newkey rsa:2048 -keyout key.pem \
+% -out cert.pem -days 100 -nodes -subj '/CN=localhost'
+
+stargate:start_link(
+  #{
+      port=> 8443,
+      ip=> {0,0,0,0},
+      ssl=> true,
+      certfile=> "./priv/cert.pem",
+      keyfile=> "./priv/key.pem",
+      hosts=> #{
+          {http, <<"adwords.google.com">>}=> {google_adwords, []},
+          {http, <<"tracker.google.com">>}=> {google_tracker, []},
+          {http, <<"google.com">>}=> {google_website, []},
+
+          {ws, <<"adwords.google.com">>}=> {google_adwords_ws, []}
+      }
+  }
+)
+```
+
+### Example Modules
+
+```erlang
 %google_adwords module example
 -module(google_adwords).
 -export([http/6]).
@@ -69,7 +98,9 @@ http('GET', <<"/click">>, #{...}=Query, #{...}=HttpHeaders, <<Body>>, #{...}=S) 
 % Response payload:
 %
 % HTTP/1.1 200 OK\r\n
+% Connection: close\r\n
 % \r\n
+
 
 
 %google_adwords_ws module example
@@ -81,16 +112,16 @@ http('GET', <<"/click">>, #{...}=Query, #{...}=HttpHeaders, <<Body>>, #{...}=S) 
 connect(S) -> 
   Socket = maps:get(socket, S),
 
-  Bin1 = proto_ws:encode_frame(<<"hello">>),
+  Bin1 = proto_ws:encode_frame(<<"hello mike">>),
   ok = gen_tcp:send(Socket, Bin1),
 
-  Bin2 = proto_ws:encode_frame("hello"),
+  Bin2 = proto_ws:encode_frame("hello joe"),
   ok = gen_tcp:send(Socket, Bin2),
 
   Bin3 = proto_ws:encode_frame(<<1,2,3,4>>, bin),
   ok = gen_tcp:send(Socket, Bin3),
 
-  Bin4 = proto_ws:encode_frame(<<>, close),
+  Bin4 = proto_ws:encode_frame(close),
   ok = gen_tcp:send(Socket, Bin4),
 
   S.
@@ -98,4 +129,11 @@ connect(S) ->
 disconnect(S) -> pass.
 
 msg(Bin, S) -> S.
+```
+
+```javascript
+
+//Chrome WSS example:
+var Socket = new WebSocket("wss://localhost:8443");
+Socket.send("Hello Mike");
 ```

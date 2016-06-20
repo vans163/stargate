@@ -10,7 +10,37 @@
          terminate/2,
          code_change/3]).
 
+-export([ws_send/2, ws_send/3, ws_send/4]).
+
+
 -include("global.hrl").
+
+
+%%%%% Websocket Stuff %%%%
+
+ws_send(Pid, ping) -> 
+    Bin = proto_ws:encode_frame(ping),
+    gen_server:cast(Pid, {ws_send, Bin});
+ws_send(Pid, close) -> 
+    Bin = proto_ws:encode_frame(close),
+    gen_server:cast(Pid, {ws_send, Bin});
+ws_send(Pid, Payload) -> 
+    Bin = proto_ws:encode_frame(Payload),
+    gen_server:cast(Pid, {ws_send, Bin}).
+
+ws_send(Pid, Payload, bin) ->
+    Bin = proto_ws:encode_frame(Payload, bin),
+    gen_server:cast(Pid, {ws_send, Bin});
+
+%TODO: Websocket Compression
+ws_send(Pid, Payload, compress) ->
+    Bin = proto_ws:encode_frame(Payload),
+    gen_server:cast(Pid, {ws_send, Bin}).
+ws_send(Pid, Payload, bin, compress) ->
+    Bin = proto_ws:encode_frame(Payload),
+    gen_server:cast(Pid, {ws_send, Bin}).
+
+%%%%%
 
 
 
@@ -24,72 +54,93 @@ init({Params, Socket}) ->
     NextDc = unix_time() + ?MAX_TCP_TIMEOUT_SEC,
     {ok, #{params=> Params, session_state=> #{}, nextDc=> NextDc}}.
 
-handle_cast({pass_socket, ClientSocket}, S) ->
-    inet:setopts(ClientSocket, [{active, once}, {packet, http_bin}]),
+%%%% %%%%
+handle_cast({pass_socket, ClientSocket}, S=#{params:=#{ssl:= false}}) ->
+    transport_setopts(ClientSocket, [{active, once}, {packet, http_bin}]),
     {noreply, S#{socket=> ClientSocket}};
+
+handle_cast({pass_socket, ClientSocket}, S=#{
+    params:= #{ssl:= true, certfile:= CertFile, keyfile:= KeyFile}
+}) ->
+    {ok, SSLSocket} = ssl:ssl_accept(ClientSocket, [
+        {certfile, CertFile}, {keyfile, KeyFile}
+    ], 10000),
+    transport_setopts(SSLSocket, [{active, once}, {packet, http_bin}]),
+    {noreply, S#{socket=> SSLSocket}};
+%%%%% %%%%%
+
+handle_cast({ws_send, Payload}, S=#{socket:= Socket}) ->
+    ok = transport_send(Socket, Payload),
+    {noreply, S};
 
 handle_cast(Message, S) -> {noreply, S}.
 handle_call(Message, From, S) -> {reply, ok, S}.
 
-%HTTP / WS
-handle_info({http, Socket, {http_request, Type, {abs_path, Path}, HttpVer}}, S=#{
-    session_state:= SessState, params:= #{ssl:=false, hosts:=Hosts}
+
+%% WS Upgrade
+handle_http(Headers=#{'Upgrade':= <<"websocket">>}, Body, S=#{
+    socket:=Socket, params:= #{hosts:=Hosts}
 }) ->
+    Host = maps:get('Host', Headers, <<"*">>),
+    WildCardWSAtom = maps:get({ws, <<"*">>}, Hosts),
+    {WSHandlerAtom, WSHandlerOptions} = maps:get({ws, Host}, Hosts, WildCardWSAtom),
+
+    WSVersion = maps:get(<<"Sec-Websocket-Version">>, Headers),
+    true = proto_ws:check_version(WSVersion),
+
+    WSExtensions = maps:get(<<"Sec-Websocket-Extensions">>, Headers, <<"">>),
+
+    WSKey = maps:get(<<"Sec-Websocket-Key">>, Headers),
+    WSResponseBin = proto_ws:handshake(WSKey),
+    ok = transport_send(Socket, WSResponseBin),
+    S_ = apply(WSHandlerAtom, connect, [S]),
+
+    transport_setopts(Socket, [{active, once}, {packet, raw}, binary]),
+    timer:send_after(?WS_PING_INTERVAL, ws_ping),
+    S_#{ws_handler=> WSHandlerAtom, ws_buf=> <<>>}
+    ;
+
+%Regular HTTP request
+handle_http(Headers, Body, S=#{
+    socket:=Socket, params:= #{hosts:=Hosts}, session_state:= SS=#{path:=Path, type:=Type}
+}) ->
+    Host = maps:get('Host', Headers, <<"*">>),
+    WCardAtom = maps:get({http, <<"*">>}, Hosts),
+    {HandlerAtom, HandlerOpts} = maps:get({http, Host}, Hosts, WCardAtom),
+
+    {CleanPath, Query} = proto_http:path_and_query(Path),
+
+    {RCode, RHeaders, RBody, SS2} = 
+        apply(HandlerAtom, http, 
+            [Type, CleanPath, Query, Headers, Body, 
+                SS#{socket=> Socket, host=> Host}
+            ]
+    ),
+    RBin = proto_http:response(RCode, RHeaders, RBody),
+    ok = transport_send(Socket, RBin),
+
+    transport_close(Socket),
+    S#{session_state=> SS2}
+    .
+
+
+%%% HTTP / Negotiate Websockets
+handle_info({Proto, Socket, {http_request, Type, {abs_path, Path}, HttpVer}}, S=#{
+    session_state:= SessState
+}) when Proto == http; Proto == ssl ->
     %Type = 'GET'/'POST'/'ETC'
     {HttpHeaders, Body} = proto_http:recv(Socket),
-    Host = maps:get('Host', HttpHeaders, <<"*">>),
-
-    Upgrade = maps:get('Upgrade', HttpHeaders, undefined),
-    {S2, SessState3} = case Upgrade of
-        <<"websocket">> ->
-            WildCardWSAtom = maps:get({ws, <<"*">>}, Hosts),
-            {WSHandlerAtom, WSHandlerOptions} = maps:get({ws, Host}, Hosts, WildCardWSAtom),
-
-            WSVersion = maps:get(<<"Sec-Websocket-Version">>, HttpHeaders),
-            true = proto_ws:check_version(WSVersion),
-            WSKey = maps:get(<<"Sec-Websocket-Key">>, HttpHeaders),
-            WSExtensions = maps:get(<<"Sec-Websocket-Extensions">>, HttpHeaders, <<"">>),
-            WSResponseBin = proto_ws:handshake(WSKey),
-            ok = gen_tcp:send(Socket, WSResponseBin),
-            S_ = apply(WSHandlerAtom, connect, [S]),
-            inet:setopts(Socket, [{active, once}, {packet, raw}, binary]),
-            timer:send_after(?WS_PING_INTERVAL, ws_ping),
-            {S_#{ws_handler=> WSHandlerAtom, ws_buf=> <<>>}, SessState};
-
-        undefined ->
-            WildCardHTTPAtom = maps:get({http, <<"*">>}, Hosts),
-            {HTTPHandlerAtom, HTTPHandlerOptions} = 
-                maps:get({http, Host}, Hosts, WildCardHTTPAtom),
-
-            {CleanPath, Query} = proto_http:path_and_query(Path),
-            {ResponseCode, ResponseHeaders, ResponseBody, SessState2} = 
-                apply(HTTPHandlerAtom, http, 
-                    [Type, CleanPath, Query, HttpHeaders, Body, 
-                        SessState#{socket=> Socket, host=> Host}
-                    ]
-            ),
-            ResponseBin = proto_http:response(
-                ResponseCode, ResponseHeaders, ResponseBody),
-
-            ok = gen_tcp:send(Socket, ResponseBin),
-            gen_tcp:close(Socket),
-            {S, SessState2}
-    end,
-
+    S2 = handle_http(HttpHeaders, Body, S#{
+        session_state=> SessState#{path=> Path, type=> Type}
+    }),
     NextDc = unix_time() + ?MAX_TCP_TIMEOUT_SEC,
-    {noreply, S2#{socket=> Socket, session_state=> SessState3, nextDc=> NextDc}}
+    {noreply, S2#{nextDc=> NextDc}}
 ;
 
-%HTTPS / WSS
-handle_info({http, Socket, {http_request, Type, {abs_path, Path}, HttpVer}}, S=#{
-    session_state:= SessState, params:= Params=#{ssl:=true, hosts:=Hosts}
-}) ->
-    ssl_to_do
-;
 
-%%%WS / WSS
-handle_info({tcp, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) ->
-
+%%% Websockets
+handle_info({Proto, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) 
+when Proto == tcp; Proto == ssl->
     S3 = case proto_ws:decode_frame(<<WSBuf/binary, Bin/binary>>) of
         %pong
         {ok, 10, _, Buffer} ->
@@ -103,7 +154,7 @@ handle_info({tcp, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) ->
             S#{ws_buf=> Buffer}
     end,
 
-    inet:setopts(Socket, [{active, once}, binary]),
+    transport_setopts(Socket, [{active, once}, binary]),
 
     NextDc = unix_time() + ?MAX_TCP_TIMEOUT_SEC,
     {noreply, S3#{nextDc=> NextDc}}
@@ -111,8 +162,7 @@ handle_info({tcp, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) ->
 
 handle_info(ws_ping, S=#{socket:= Socket}) ->
     timer:send_after(?WS_PING_INTERVAL, ws_ping),
-    Bin = proto_ws:encode_frame(<<>>, ping),
-    ok = gen_tcp:send(Socket, Bin),
+    ok = transport_send(Socket, proto_ws:encode_frame(ping)),
     {noreply, S};
 %%%
 
@@ -125,14 +175,14 @@ handle_info(stalled, S=#{nextDc:= NextDc}) ->
         Now > NextDc ->
             case maps:get(socket, S, undefined) of
                 undefined -> pass;
-                Socket -> gen_tcp:close(Socket)
+                Socket -> transport_close(Socket)
             end,
             {stop, {shutdown, tcp_closed}, S};
 
         true -> {noreply, S}
     end;
 
-handle_info({tcp_closed, Socket}, S) ->
+handle_info({Proto, Socket}, S) when Proto == tcp_closed; Proto == ssl_closed ->
     %WS / WSS
     case maps:get(ws_handler, S, undefined) of
         undefined -> pass;

@@ -24,15 +24,24 @@ warp_in() ->
                 {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, []}
             }
         }
+    ),
+    start_link(#{
+            port=> 8443,
+            ip=> {0,0,0,0},
+            ssl=> true,
+            certfile=> "./priv/cert.pem",
+            keyfile=> "./priv/key.pem",
+            hosts=> #{
+                {http, <<"*">>}=> {?HANDLER_WILDCARD, []},
+                {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, []}
+            }
+        }
     ).
+    %openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 100 -nodes -subj '/CN=localhost'
 
-ensure_wildcard(Hosts, false) ->
+ensure_wildcard(Hosts) ->
     Hosts2 = ensure_wildcard({http, <<"*">>}, ?HANDLER_WILDCARD, Hosts),
-    Hosts3 = ensure_wildcard({ws, <<"*">>}, ?HANDLER_WILDCARD_WS, Hosts)
-    ;
-ensure_wildcard(Hosts, true) ->
-    Hosts2 = ensure_wildcard({https, <<"*">>}, ?HANDLER_WILDCARD, Hosts),
-    Hosts3 = ensure_wildcard({wss, <<"*">>}, ?HANDLER_WILDCARD_WS, Hosts)
+    Hosts3 = ensure_wildcard({ws, <<"*">>}, ?HANDLER_WILDCARD_WS, Hosts2)
     .
 ensure_wildcard(Key, Handler, Hosts) ->
     case maps:get(Key, Hosts, undefined) of
@@ -44,11 +53,17 @@ ensure_wildcard(Key, Handler, Hosts) ->
 fix_params(Params) ->
     Port = maps:get(port, Params),
     Ip = maps:get(ip, Params),
-    Ssl = maps:get(ssl, Params),
     Hosts = maps:get(hosts, Params),
 
-    Hosts2 = ensure_wildcard(Hosts, Ssl),
-    maps:put(hosts, Hosts2, Params).
+    Hosts2 = ensure_wildcard(Hosts),
+    Params2 = maps:put(hosts, Hosts2, Params),
+
+    Ssl = maps:get(ssl, Params),
+    case Ssl of
+        true -> ssl:start();
+        _ -> pass
+    end,
+    Params2.
 %%%%%%
 
 

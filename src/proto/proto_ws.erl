@@ -86,7 +86,8 @@ decode_frame(<<Fin:1, RSV1:1, RSV2:1, RSV3:1,
     end
 .
 
-
+encode_frame(ping) -> encode_frame(<<>>, ping);
+encode_frame(close) -> encode_frame(<<>>, close);
 encode_frame(Bin) -> encode_frame(Bin, text).
 
 encode_frame(Bin, T) when is_list(Bin) -> encode_frame(list_to_binary(Bin), T);

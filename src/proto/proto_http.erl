@@ -9,39 +9,6 @@
 
 -include("../global.hrl").
 
-recv(Socket) ->
-    HttpHeaders = recv_headers(Socket),
-    ContLen = maps:get('Content-Length', HttpHeaders, undefined),
-    %TransEncoding = maps:get('Transfer-Encoding', HttpHeaders, undefined),
-    Body = recv_body(Socket, ContLen),
-    {HttpHeaders, Body}.
-
-
-recv_headers(Socket) ->
-    inet:setopts(Socket, [{active, false}, {packet, httph_bin}]),
-    recv_headers_1(Socket).
-
-recv_headers_1(Socket) -> recv_headers_1(Socket, #{}, 0).
-recv_headers_1(_, _, Size) when Size > ?MAX_HEADER_SIZE -> throw(max_header_size_exceeded);
-recv_headers_1(Socket, Map, Size) ->
-    case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
-        {ok, {http_header,_,Key,undefined, Value}} -> 
-            recv_headers_1(Socket, Map#{Key=>Value}, Size + size(Value));
-        {ok, http_eoh} -> Map
-    end.
-
-
-recv_body(Socket, undefined) -> <<>>;
-recv_body(Socket, ContLen) when is_binary(ContLen) -> 
-    recv_body(Socket, binary_to_integer(ContLen));
-recv_body(Socket, ContLen) when ContLen > ?MAX_BODY_SIZE -> <<>>;
-recv_body(Socket, ContLen) ->
-    inet:setopts(Socket, [{active, false}, {packet, raw}, binary]),
-    {ok, Body} = gen_tcp:recv(Socket, ContLen, ?TIMEOUT),
-    Body.
-
-
-
 
 path_and_query(Path) ->
     {CleanPath, Query} = case binary:split(Path, <<"?">>, [trim]) of
@@ -62,6 +29,37 @@ path_and_query(Path) ->
 .
 
 
+
+recv(Socket) ->
+    HttpHeaders = recv_headers(Socket),
+    ContLen = maps:get('Content-Length', HttpHeaders, undefined),
+    %TransEncoding = maps:get('Transfer-Encoding', HttpHeaders, undefined),
+    Body = recv_body(Socket, ContLen),
+    {HttpHeaders, Body}.
+
+recv_headers(Socket) ->
+    transport_setopts(Socket, [{active, false}, {packet, httph_bin}]),
+    recv_headers_1(Socket).
+
+%TODO: This does not count the Header Key, ops
+recv_headers_1(Socket) -> recv_headers_1(Socket, #{}, 0).
+recv_headers_1(_, _, Size) when Size > ?HTTP_MAX_HEADER_SIZE -> throw(max_header_size_exceeded);
+recv_headers_1(Socket, Map, Size) ->
+    case transport_recv(Socket, 0, ?TIMEOUT) of
+        {ok, {http_header,_,Key,undefined, Value}} -> 
+            recv_headers_1(Socket, Map#{Key=>Value}, Size + byte_size(Value));
+        {ok, http_eoh} -> Map
+    end.
+
+
+recv_body(Socket, undefined) -> <<>>;
+recv_body(Socket, ContLen) when is_binary(ContLen) -> 
+    recv_body(Socket, binary_to_integer(ContLen));
+recv_body(Socket, ContLen) when ContLen > ?HTTP_MAX_BODY_SIZE -> throw(max_body_size_exceeded);
+recv_body(Socket, ContLen) ->
+    transport_setopts(Socket, [{active, false}, {packet, raw}, binary]),
+    {ok, Body} = transport_recv(Socket, ContLen, ?TIMEOUT),
+    Body.
 
 
 

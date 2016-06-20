@@ -7,17 +7,17 @@ Erlang customizable webserver
 Work in progress.  
 
 ### Current Features
-Simple support for HTTP  
-Websockets  
-SSL  
+- Simple support for HTTP  
+- SSL  
+- Websockets  
 
 ### Roadmap
-hot-loading new paths  
-zlib (GZIP)  
-~~SSL~~  
-* SNI  
-~~Websockets~~  
-* Compression  
+- hot-loading new paths  
+- zlib (GZIP)  
+- ~~SSL~~  
+  - SNI  
+- ~~Websockets~~  
+  - Compression  
 
 ### Websockets
 Keep-alives are sent from server automatically  

@@ -135,18 +135,17 @@ http('GET', <<"/click">>, #{...}=Query, #{...}=HttpHeaders, <<Body>>, #{...}=S) 
 
 connect(S) -> 
     Socket = maps:get(socket, S),
+    Pid = self(),
+  
+    vessel:ws_send(Pid, <<"hello mike">>),
+    vessel:ws_send(Pid, "hello joe"),
+    vessel:ws_send(Pid, <<1,2,3,4>>, bin),
 
-    Bin1 = proto_ws:encode_frame(<<"hello mike">>),
-    ok = gen_tcp:send(Socket, Bin1),
+    vessel:ws_send(Pid, <<"hello mike">>, compress),
+    vessel:ws_send(Pid, "hello joe", compress),
+    vessel:ws_send(Pid, <<1,2,3,4>>, bin_compress),
 
-    Bin2 = proto_ws:encode_frame("hello joe"),
-    ok = gen_tcp:send(Socket, Bin2),
-
-    Bin3 = proto_ws:encode_frame(<<1,2,3,4>>, bin),
-    ok = gen_tcp:send(Socket, Bin3),
-
-    Bin4 = proto_ws:encode_frame(close),
-    ok = gen_tcp:send(Socket, Bin4),
+    vessel:ws_send(Pid, close),
 
     S.
 
@@ -156,7 +155,7 @@ msg(Bin, S) -> S.
 
 ```javascript
 
-//Chrome WSS example:
+//Chrome javascript WSS example:
 var Socket = new WebSocket("wss://localhost:8443");
 Socket.send("Hello Mike");
 ```

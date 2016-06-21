@@ -4,7 +4,8 @@
 -export([handshake/3]).
 -export([decode_frame/1]).
 
--export([encode_frame/1, encode_frame/2]).
+-export([encode_frame/1, encode_frame/2, encode_frame/3]).
+-export([deflate/2]).
 
 -include("../global.hrl").
 
@@ -45,6 +46,15 @@ deflateInit(CompressOpts) ->
     Z = zlib:open(),
     zlib:deflateInit(Z, Level, deflated, -WindowBits, MemLevel, Strategy),
     Z
+    .
+
+deflate(ZDeflate, Payload) ->
+    Bin = iolist_to_binary(zlib:deflate(ZDeflate, Payload, sync)),
+    Len = byte_size(Bin) - 4,
+    case Bin of
+        <<Body:Len/binary, 0:8, 0:8, 255:8, 255:8>> -> Body;
+        _ -> Bin
+    end
     .
 
 handshake(WSKey, WSExtensions, WSOptions) ->
@@ -103,7 +113,6 @@ decode_frame(<<Fin:1, RSV1:1, RSV2:1, RSV3:1,
     %unimplemented. Only firefox splits frames after 32kb
     %http://lucumr.pocoo.org/2012/9/24/websockets-101/
     true = 0 /= Opcode,
-    %?PRINT({Opcode}),
 
     case Rest of
         <<0:1, 127:7, PLen:64, P:PLen/binary, R/binary>> ->
@@ -134,24 +143,31 @@ decode_frame(<<Fin:1, RSV1:1, RSV2:1, RSV3:1,
     end
 .
 
+
+
+
 encode_frame(ping) -> encode_frame(<<>>, ping);
 encode_frame(close) -> encode_frame(<<>>, close);
 encode_frame(Bin) -> encode_frame(Bin, text).
 
 encode_frame(Bin, T) when is_list(Bin) -> encode_frame(list_to_binary(Bin), T);
-encode_frame(Bin, text) -> encode_frame(Bin, 1);
-encode_frame(Bin, bin) -> encode_frame(Bin, 2);
-encode_frame(Bin, close) -> encode_frame(Bin, 8);
-encode_frame(Bin, ping) -> encode_frame(Bin, 9);
+encode_frame(Bin, text) -> encode_frame(Bin, 0, 1);
+encode_frame(Bin, bin) -> encode_frame(Bin, 0, 2);
+encode_frame(Bin, close) -> encode_frame(Bin, 0, 8);
+encode_frame(Bin, ping) -> encode_frame(Bin, 0, 9);
 
-encode_frame(Bin, Type) when byte_size(Bin) =< 125 ->
-    <<1:1, 0:1, 0:1, 0:1, Type:4, 0:1, (byte_size(Bin)):7, Bin/binary>>
+encode_frame(Bin, compress) -> encode_frame(Bin, 1, 1);
+encode_frame(Bin, bin_compress) -> encode_frame(Bin, 1, 2).
+
+
+encode_frame(Bin, RSV1, Type) when byte_size(Bin) =< 125 ->
+    <<1:1, RSV1:1, 0:1, 0:1, Type:4, 0:1, (byte_size(Bin)):7, Bin/binary>>
 ;
 
-encode_frame(Bin, Type) when byte_size(Bin) =< 65536 ->
-    <<1:1, 0:1, 0:1, 0:1, Type:4, 0:1, 126:7, (byte_size(Bin)):16, Bin/binary>>
+encode_frame(Bin, RSV1, Type) when byte_size(Bin) =< 65536 ->
+    <<1:1, RSV1:1, 0:1, 0:1, Type:4, 0:1, 126:7, (byte_size(Bin)):16, Bin/binary>>
 ;
 
-encode_frame(Bin, Type) ->
-    <<1:1, 0:1, 0:1, 0:1, Type:4, 0:1, 127:7, (byte_size(Bin)):64, Bin/binary>>
+encode_frame(Bin, RSV1, Type) ->
+    <<1:1, RSV1:1, 0:1, 0:1, Type:4, 0:1, 127:7, (byte_size(Bin)):64, Bin/binary>>
 .

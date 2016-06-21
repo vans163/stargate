@@ -10,7 +10,7 @@
          terminate/2,
          code_change/3]).
 
--export([ws_send/2, ws_send/3, ws_send/4]).
+-export([ws_send/2, ws_send/3]).
 
 
 -include("global.hrl").
@@ -32,15 +32,11 @@ ws_send(Pid, Payload, bin) ->
     Bin = proto_ws:encode_frame(Payload, bin),
     gen_server:cast(Pid, {ws_send, Bin});
 
-%TODO: Websocket Compression
 ws_send(Pid, Payload, compress) ->
-    Bin = proto_ws:encode_frame(Payload),
-    gen_server:cast(Pid, {ws_send, Bin}).
-ws_send(Pid, Payload, bin, compress) ->
-    Bin = proto_ws:encode_frame(Payload),
-    gen_server:cast(Pid, {ws_send, Bin}).
+    gen_server:cast(Pid, {ws_send_compress, Payload});
+ws_send(Pid, Payload, bin_compress) ->
+    gen_server:cast(Pid, {ws_send_bin_compress, Payload}).
 
-%%%%%
 
 
 
@@ -69,8 +65,21 @@ handle_cast({pass_socket, ClientSocket}, S=#{
     {noreply, S#{socket=> SSLSocket}};
 %%%%% %%%%%
 
+
 handle_cast({ws_send, Payload}, S=#{socket:= Socket}) ->
     ok = transport_send(Socket, Payload),
+    {noreply, S};
+handle_cast({ws_send_compress, Payload}, S=#{socket:= Socket}) ->
+    ZDeflate = maps:get(zdeflate, S),
+    Payload_ = proto_ws:deflate(ZDeflate, Payload),
+    Bin = proto_ws:encode_frame(Payload_, compress),
+    ok = transport_send(Socket, Bin),
+    {noreply, S};
+handle_cast({ws_send_bin_compress, Payload}, S=#{socket:= Socket}) ->
+    ZDeflate = maps:get(zdeflate, S),
+    Payload_ = proto_ws:deflate(ZDeflate, Payload),
+    Bin = proto_ws:encode_frame(Payload_, bin_compress),
+    ok = transport_send(Socket, Bin),
     {noreply, S};
 
 handle_cast(Message, S) -> {noreply, S}.
@@ -147,6 +156,10 @@ handle_info({T, Socket, {http_request, Type, {abs_path, Path}, HttpVer}}, S=#{
 handle_info({T, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) 
 when T == tcp; T == ssl->
     S3 = case proto_ws:decode_frame(<<WSBuf/binary, Bin/binary>>) of
+        %close
+        %{ok, 8, _, _, Buffer} ->
+        %    S#{ws_buf=> Buffer};
+
         %pong
         {ok, 10, _, _, Buffer} ->
             S#{ws_buf=> Buffer};

@@ -10,6 +10,7 @@ Work in progress.
 - Simple support for HTTP  
 - SSL  
 - Websockets  
+  - Compression  
 
 ### Roadmap
 - hot-loading new paths  
@@ -17,7 +18,7 @@ Work in progress.
 - ~~SSL~~  
   - SNI  
 - ~~Websockets~~  
-  - Compression  
+  - ~~Compression~~  
 
 ### Thinness
 ```
@@ -27,14 +28,14 @@ git ls-files | grep -P ".*(erl|hrl)" | xargs wc -l
    12 src/handler_wildcard.erl
    21 src/handler_wildcard_ws.erl
   164 src/proto/proto_http.erl
-  108 src/proto/proto_ws.erl
-  101 src/stargate.erl
-  205 src/vessel.erl
-
-  649 total
+  172 src/proto/proto_ws.erl
+  102 src/stargate.erl
+  228 src/vessel.erl
+  
+  737 total
 ```
 
-Stargate is currently 649 lines of code.
+Stargate is currently 737 lines of code.
 
 
 ### Websockets

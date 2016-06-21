@@ -43,6 +43,7 @@ Defaults are in global.hrl
 Max sizes protect vs DDOS  
 
 ```erlang
+
 -define(MAX_TCP_TIMEOUT, 120000).
 
 -define(MAX_WS_PAYLOAD_SIZE, 16000).
@@ -52,6 +53,7 @@ Max sizes protect vs DDOS
 
 ### Example
 ```erlang
+
 %Listen on all interfaces for any non-ssl request /w websocket on port 8000
 % SSL requests on port 8443  ./priv/cert.pem   ./priv/key.pem  
 stargate:warp_in().
@@ -101,6 +103,7 @@ stargate:start_link(
 ### Example Modules
 
 ```erlang
+
 %google_adwords module example
 -module(google_adwords).
 -export([http/6]).
@@ -122,6 +125,7 @@ http('GET', <<"/click">>, #{...}=Query, #{...}=HttpHeaders, <<Body>>, #{...}=S) 
 ```
 
 ```erlang
+
 %google_adwords_ws module example
 -module(google_adwords_ws).
 
@@ -129,21 +133,21 @@ http('GET', <<"/click">>, #{...}=Query, #{...}=HttpHeaders, <<Body>>, #{...}=S) 
 -export([msg/2]).
 
 connect(S) -> 
-  Socket = maps:get(socket, S),
+    Socket = maps:get(socket, S),
 
-  Bin1 = proto_ws:encode_frame(<<"hello mike">>),
-  ok = gen_tcp:send(Socket, Bin1),
+    Bin1 = proto_ws:encode_frame(<<"hello mike">>),
+    ok = gen_tcp:send(Socket, Bin1),
 
-  Bin2 = proto_ws:encode_frame("hello joe"),
-  ok = gen_tcp:send(Socket, Bin2),
+    Bin2 = proto_ws:encode_frame("hello joe"),
+    ok = gen_tcp:send(Socket, Bin2),
 
-  Bin3 = proto_ws:encode_frame(<<1,2,3,4>>, bin),
-  ok = gen_tcp:send(Socket, Bin3),
+    Bin3 = proto_ws:encode_frame(<<1,2,3,4>>, bin),
+    ok = gen_tcp:send(Socket, Bin3),
 
-  Bin4 = proto_ws:encode_frame(close),
-  ok = gen_tcp:send(Socket, Bin4),
+    Bin4 = proto_ws:encode_frame(close),
+    ok = gen_tcp:send(Socket, Bin4),
 
-  S.
+    S.
 
 disconnect(S) -> pass.
 msg(Bin, S) -> S.

@@ -25,6 +25,7 @@ warp_in() ->
             }
         }
     ),
+    WSCompress = #{mem_level=>8},
     start_link(#{
             port=> 8443,
             ip=> {0,0,0,0},
@@ -33,7 +34,7 @@ warp_in() ->
             keyfile=> "./priv/key.pem",
             hosts=> #{
                 {http, <<"*">>}=> {?HANDLER_WILDCARD, []},
-                {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, []}
+                {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, #{compress=>WSCompress}}
             }
         }
     ).

@@ -1,7 +1,7 @@
 -module(proto_ws).
 
 -export([check_version/1]).
--export([handshake/1]).
+-export([handshake/3]).
 -export([decode_frame/1]).
 
 -export([encode_frame/1, encode_frame/2]).
@@ -12,18 +12,66 @@
 check_version(<<Ver/binary>>) -> check_version(binary_to_integer(Ver));
 check_version(Ver) -> lists:member(Ver, [7,8,13]). 
 
-handshake(WSKey) ->
+parse_extensions(WSExtensions) ->
+    WSExtStripped = binary:replace(WSExtensions, <<" ">>, <<>>, [global]),
+    WSExtensionValues = binary:split(WSExtStripped, <<";">>, [global, trim_all]),
+    lists:foldr(fun(Exten, Acc) ->
+            case binary:split(Exten, <<"=">>, [trim_all]) of
+                [K] -> Acc#{K=><<>>};
+                [K,V] -> Acc#{K=>V}
+            end
+        end, #{}, WSExtensionValues
+    )
+    .
+
+useless_hash(WSKey) ->
     UselessHash = crypto:hash(sha, 
         <<WSKey/binary, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11">>),
-    UselessHashBase64 = base64:encode(UselessHash),
+    UselessHashBase64 = base64:encode(UselessHash)
+    .
+
+inflateInit() ->
+    Z = zlib:open(),
+    zlib:inflateInit(Z, -15),
+    Z
+    .
+
+deflateInit(CompressOpts) ->
+    Level = maps:get(level, CompressOpts, 1),
+    MemLevel = maps:get(mem_level, CompressOpts, 8),
+    WindowBits = maps:get(window_bits, CompressOpts, 15),
+    Strategy = maps:get(strategy, CompressOpts, default),
+
+    Z = zlib:open(),
+    zlib:deflateInit(Z, Level, deflated, -WindowBits, MemLevel, Strategy),
+    Z
+    .
+
+handshake(WSKey, WSExtensions, WSOptions) ->
+    Extensions = parse_extensions(WSExtensions),
+    Compress = maps:get(compress, WSOptions, undefined),
 
     Headers = #{
         <<"Upgrade">>=> <<"websocket">>,
         <<"Connection">>=> <<"Upgrade">>,
-        <<"Sec-WebSocket-Accept">>=> UselessHashBase64
+        <<"Sec-WebSocket-Accept">>=> useless_hash(WSKey)
     },
-    proto_http:response(101, Headers, <<"">>)
-    .
+    ExtraHeaders = case Compress of
+        undefined -> #{};
+        CompressOpts ->
+            case maps:get(<<"permessage-deflate">>, Extensions, undefined) of
+                undefined -> #{};
+                <<>> ->
+                    #{<<"Sec-WebSocket-Extensions">>=> <<"permessage-deflate">>}
+            end
+    end,
+    Headers2 = maps:merge(Headers, ExtraHeaders),
+    RespBin = proto_http:response(101, Headers2, <<"">>),
+
+    case map_size(ExtraHeaders) of
+        0 -> {ok, RespBin};
+        _ -> {compress, RespBin, inflateInit(), deflateInit(Compress)}
+    end.
 
 
 
@@ -59,26 +107,26 @@ decode_frame(<<Fin:1, RSV1:1, RSV2:1, RSV3:1,
 
     case Rest of
         <<0:1, 127:7, PLen:64, P:PLen/binary, R/binary>> ->
-            {ok, Opcode, P, R};
+            {ok, Opcode, RSV1, P, R};
 
         <<0:1, 126:7, PLen:16, P:PLen/binary, R/binary>> ->
-            {ok, Opcode, P, R};
+            {ok, Opcode, RSV1, P, R};
 
         <<0:1, PLen:7, P:PLen/binary, R/binary>> when PLen < 126 ->
-            {ok, Opcode, P, R};
+            {ok, Opcode, RSV1, P, R};
 
 
         <<1:1, 127:7, PLen:64, M:4/binary, P:PLen/binary, R/binary>> ->
             PayloadXored = xor_payload(P, M),
-            {ok, Opcode, PayloadXored, R};
+            {ok, Opcode, RSV1, PayloadXored, R};
 
         <<1:1, 126:7, PLen:16, M:4/binary, P:PLen/binary, R/binary>> ->
             PayloadXored = xor_payload(P, M),
-            {ok, Opcode, PayloadXored, R};
+            {ok, Opcode, RSV1, PayloadXored, R};
 
         <<1:1, PLen:7, M:4/binary, P:PLen/binary, R/binary>> when PLen < 126 ->
             PayloadXored = xor_payload(P, M),
-            {ok, Opcode, PayloadXored, R};
+            {ok, Opcode, RSV1, PayloadXored, R};
 
 
         <<R/binary>> -> 

@@ -88,16 +88,21 @@ handle_http(Headers=#{'Upgrade':= <<"websocket">>}, Body, S=#{
     WSVersion = maps:get(<<"Sec-Websocket-Version">>, Headers),
     true = proto_ws:check_version(WSVersion),
 
+    WSKey = maps:get(<<"Sec-Websocket-Key">>, Headers),
     WSExtensions = maps:get(<<"Sec-Websocket-Extensions">>, Headers, <<"">>),
 
-    WSKey = maps:get(<<"Sec-Websocket-Key">>, Headers),
-    WSResponseBin = proto_ws:handshake(WSKey),
-    ok = transport_send(Socket, WSResponseBin),
-    S_ = apply(WSHandlerAtom, connect, [S]),
+    {S_, WSResponseBin_} = case proto_ws:handshake(WSKey, WSExtensions, WSHandlerOptions) of
+        {ok, WSResponseBin} -> { S, WSResponseBin };
+        {compress, WSResponseBin, ZInflate, ZDeflate} -> 
+            { S#{zinflate=> ZInflate, zdeflate=> ZDeflate}, WSResponseBin }
+    end,
+
+    ok = transport_send(Socket, WSResponseBin_),
+    S__ = apply(WSHandlerAtom, connect, [S_]),
 
     transport_setopts(Socket, [{active, once}, {packet, raw}, binary]),
     timer:send_after(?WS_PING_INTERVAL, ws_ping),
-    S_#{ws_handler=> WSHandlerAtom, ws_buf=> <<>>}
+    S__#{ws_handler=> WSHandlerAtom, ws_buf=> <<>>}
     ;
 
 %Regular HTTP request
@@ -143,10 +148,15 @@ handle_info({T, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf})
 when T == tcp; T == ssl->
     S3 = case proto_ws:decode_frame(<<WSBuf/binary, Bin/binary>>) of
         %pong
-        {ok, 10, _, Buffer} ->
+        {ok, 10, _, _, Buffer} ->
             S#{ws_buf=> Buffer};
 
-        {ok, Opcode, Payload, Buffer} ->
+        {ok, Opcode, 1, Payload, Buffer} ->
+            Payload_ = zlib:inflate(maps:get(zinflate, S), <<Payload/binary,0,0,255,255>>),
+            S2 = apply(WSHandler, msg, [iolist_to_binary(Payload_), S]),
+            S2#{ws_buf=> Buffer};
+
+        {ok, Opcode, 0, Payload, Buffer} ->
             S2 = apply(WSHandler, msg, [Payload, S]),
             S2#{ws_buf=> Buffer};
 

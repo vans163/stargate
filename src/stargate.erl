@@ -20,12 +20,12 @@ warp_in() ->
             ip=> {0,0,0,0},
             ssl=> false,
             hosts=> #{
-                {http, <<"*">>}=> {?HANDLER_WILDCARD, []},
-                {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, []}
+                {http, <<"*">>}=> {?HANDLER_WILDCARD, #{}},
+                {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, #{}}
             }
         }
     ),
-    WSCompress = #{mem_level=>8},
+    WSCompress = #{window_bits=> 15, level=>1, mem_level=>8, strategy=>default},
     start_link(#{
             port=> 8443,
             ip=> {0,0,0,0},
@@ -33,7 +33,7 @@ warp_in() ->
             certfile=> "./priv/cert.pem",
             keyfile=> "./priv/key.pem",
             hosts=> #{
-                {http, <<"*">>}=> {?HANDLER_WILDCARD, []},
+                {http, <<"*">>}=> {?HANDLER_WILDCARD, #{}},
                 {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, #{compress=>WSCompress}}
             }
         }
@@ -46,7 +46,7 @@ ensure_wildcard(Hosts) ->
     .
 ensure_wildcard(Key, Handler, Hosts) ->
     case maps:get(Key, Hosts, undefined) of
-        undefined -> maps:put(Key, {Handler, []}, Hosts);
+        undefined -> maps:put(Key, {Handler, #{}}, Hosts);
         _ -> Hosts
     end
     .

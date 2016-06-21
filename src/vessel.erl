@@ -157,8 +157,9 @@ handle_info({T, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf})
 when T == tcp; T == ssl->
     S3 = case proto_ws:decode_frame(<<WSBuf/binary, Bin/binary>>) of
         %close
-        %{ok, 8, _, _, Buffer} ->
-        %    S#{ws_buf=> Buffer};
+        {ok, 8, _, _, Buffer} ->
+            transport_close(Socket),
+            S#{ws_buf=> Buffer};
 
         %pong
         {ok, 10, _, _, Buffer} ->

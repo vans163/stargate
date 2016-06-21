@@ -67,11 +67,11 @@ stargate:start_link(
       ip=> {0,0,0,0},
       ssl=> false,
       hosts=> #{
-          {http, <<"adwords.google.com">>}=> {google_adwords, []},
-          {http, <<"tracker.google.com">>}=> {google_tracker, []},
-          {http, <<"google.com">>}=> {google_website, []},
+          {http, <<"adwords.google.com">>}=> {google_adwords, #{}},
+          {http, <<"tracker.google.com">>}=> {google_tracker, #{}},
+          {http, <<"google.com">>}=> {google_website, #{}},
 
-          {ws, <<"adwords.google.com">>}=> {google_adwords_ws, []}
+          {ws, <<"adwords.google.com">>}=> {google_adwords_ws, #{}}
       }
   }
 )
@@ -83,6 +83,7 @@ stargate:start_link(
 %openssl req -x509 -newkey rsa:2048 -keyout key.pem \
 % -out cert.pem -days 100 -nodes -subj '/CN=localhost'
 
+WSCompress = #{window_bits=> 15, level=>best_speed, mem_level=>8, strategy=>default},
 stargate:start_link(
   #{
       port=> 8443,
@@ -91,11 +92,11 @@ stargate:start_link(
       certfile=> "./priv/cert.pem",
       keyfile=> "./priv/key.pem",
       hosts=> #{
-          {http, <<"adwords.google.com">>}=> {google_adwords, []},
-          {http, <<"tracker.google.com">>}=> {google_tracker, []},
-          {http, <<"google.com">>}=> {google_website, []},
+          {http, <<"adwords.google.com">>}=> {google_adwords, #{}},
+          {http, <<"tracker.google.com">>}=> {google_tracker, #{}},
+          {http, <<"google.com">>}=> {google_website, #{}},
 
-          {ws, <<"adwords.google.com">>}=> {google_adwords_ws, []}
+          {ws, <<"adwords.google.com">>}=> {google_adwords_ws, #{compress=> WSCompress}}
       }
   }
 )

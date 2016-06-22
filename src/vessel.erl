@@ -70,16 +70,22 @@ handle_cast({ws_send, Payload}, S=#{socket:= Socket}) ->
     ok = transport_send(Socket, Payload),
     {noreply, S};
 handle_cast({ws_send_compress, Payload}, S=#{socket:= Socket}) ->
-    ZDeflate = maps:get(zdeflate, S),
-    Payload_ = proto_ws:deflate(ZDeflate, Payload),
-    Bin = proto_ws:encode_frame(Payload_, compress),
-    ok = transport_send(Socket, Bin),
+    case maps:get(zdeflate, S, undefined) of
+        undefined -> ok = transport_send(Socket, Payload);
+        ZDeflate -> 
+            Payload_ = proto_ws:deflate(ZDeflate, Payload),
+            Bin = proto_ws:encode_frame(Payload_, compress),
+            ok = transport_send(Socket, Bin)
+    end,
     {noreply, S};
 handle_cast({ws_send_bin_compress, Payload}, S=#{socket:= Socket}) ->
-    ZDeflate = maps:get(zdeflate, S),
-    Payload_ = proto_ws:deflate(ZDeflate, Payload),
-    Bin = proto_ws:encode_frame(Payload_, bin_compress),
-    ok = transport_send(Socket, Bin),
+    case maps:get(zdeflate, S, undefined) of
+        undefined -> ok = transport_send(Socket, Payload);
+        ZDeflate -> 
+            Payload_ = proto_ws:deflate(ZDeflate, Payload),
+            Bin = proto_ws:encode_frame(Payload_, ws_send_bin_compress),
+            ok = transport_send(Socket, Bin)
+    end,
     {noreply, S};
 
 handle_cast(Message, S) -> {noreply, S}.

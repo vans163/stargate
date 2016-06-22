@@ -67,11 +67,11 @@ handle_cast({pass_socket, ClientSocket}, S=#{
 
 
 handle_cast({ws_send, Payload}, S=#{socket:= Socket}) ->
-    ok = transport_send(Socket, Payload),
+    ok = transport_send(Socket, proto_ws:encode_frame(Payload)),
     {noreply, S};
 handle_cast({ws_send_compress, Payload}, S=#{socket:= Socket}) ->
     case maps:get(zdeflate, S, undefined) of
-        undefined -> ok = transport_send(Socket, Payload);
+        undefined -> ok = transport_send(Socket, proto_ws:encode_frame(Payload));
         ZDeflate -> 
             Payload_ = proto_ws:deflate(ZDeflate, Payload),
             Bin = proto_ws:encode_frame(Payload_, compress),
@@ -80,7 +80,7 @@ handle_cast({ws_send_compress, Payload}, S=#{socket:= Socket}) ->
     {noreply, S};
 handle_cast({ws_send_bin_compress, Payload}, S=#{socket:= Socket}) ->
     case maps:get(zdeflate, S, undefined) of
-        undefined -> ok = transport_send(Socket, Payload);
+        undefined -> ok = transport_send(Socket, proto_ws:encode_frame(Payload, bin));
         ZDeflate -> 
             Payload_ = proto_ws:deflate(ZDeflate, Payload),
             Bin = proto_ws:encode_frame(Payload_, ws_send_bin_compress),

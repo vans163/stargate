@@ -72,9 +72,9 @@ response(Code, Headers, Body) ->
         Exists -> Exists
     end,
     
-    BodySize = integer_to_binary(size(Body)),
+    BodySize = integer_to_binary(byte_size(Body)),
     HeadersFinal = case BodySize of
-        0 -> Headers;
+        <<"0">> -> Headers;
         _ -> maps:put(<<"Content-Length">>, BodySize, Headers)
     end,
 

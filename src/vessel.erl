@@ -180,7 +180,7 @@ when T == tcp; T == ssl->
             S2 = apply(WSHandler, msg, [Payload, S]),
             S2#{ws_buf=> Buffer};
 
-        {incomplete, Buffer} -> 
+        {incomplete, Buffer} ->
             S#{ws_buf=> Buffer}
     end,
 

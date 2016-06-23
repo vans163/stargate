@@ -107,7 +107,7 @@ xor_payload(<<Chunk:8, Rest/binary>>, M= <<Mask:8, _/binary>>, Acc) ->
     .
 
 
-decode_frame(<<Fin:1, RSV1:1, RSV2:1, RSV3:1, 
+decode_frame(Chunk= <<Fin:1, RSV1:1, RSV2:1, RSV3:1, 
         Opcode:4, Rest/binary>>) ->
     
     %unimplemented. Only firefox splits frames after 32kb
@@ -138,8 +138,8 @@ decode_frame(<<Fin:1, RSV1:1, RSV2:1, RSV3:1,
             {ok, Opcode, RSV1, PayloadXored, R};
 
 
-        <<R/binary>> -> 
-            {incomplete, R}
+        <<_/binary>> -> 
+            {incomplete, Chunk}
     end
 .
 

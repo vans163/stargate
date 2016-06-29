@@ -157,6 +157,13 @@ handle_info({T, Socket, {http_request, Type, {abs_path, Path}, HttpVer}}, S=#{
     {noreply, S2#{nextDc=> NextDc}}
 ;
 
+%%% HTTP Error
+handle_info({T, Socket, {http_error, _}}, S=#{
+    session_state:= SessState
+}) when T == http; T == ssl ->
+    %disconnect
+    {noreply, S2#{nextDc=> 1}}
+;
 
 %%% Websockets
 handle_info({T, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) 

@@ -162,7 +162,7 @@ handle_info({T, Socket, {http_error, _}}, S=#{
     session_state:= SessState
 }) when T == http; T == ssl ->
     %disconnect
-    {noreply, S2#{nextDc=> 1}}
+    {noreply, S#{nextDc=> 1}}
 ;
 
 %%% Websockets

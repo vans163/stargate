@@ -3,6 +3,7 @@
 
 -export([warp_in/0]).
 -export([start_link/1]).
+-export([update_params/2]).
 
 -export([init/1,
          handle_call/3,
@@ -18,7 +19,6 @@ warp_in() ->
     start_link(#{
             port=> 8000,
             ip=> {0,0,0,0},
-            ssl=> false,
             hosts=> #{
                 {http, <<"*">>}=> {?HANDLER_WILDCARD, #{}},
                 {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, #{}}
@@ -29,9 +29,10 @@ warp_in() ->
     start_link(#{
             port=> 8443,
             ip=> {0,0,0,0},
-            ssl=> true,
-            certfile=> "./priv/cert.pem",
-            keyfile=> "./priv/key.pem",
+            ssl_opts=> [
+                {certfile, "./priv/cert.pem"},
+                {keyfile, "./priv/key.pem"}
+            ],
             hosts=> #{
                 {http, <<"*">>}=> {?HANDLER_WILDCARD, #{}},
                 {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, #{compress=>WSCompress}}
@@ -59,13 +60,15 @@ fix_params(Params) ->
     Hosts2 = ensure_wildcard(Hosts),
     Params2 = maps:put(hosts, Hosts2, Params),
 
-    Ssl = maps:get(ssl, Params),
+    Ssl = maps:get(ssl_opts, Params, false),
     case Ssl of
-        true -> ssl:start();
-        _ -> pass
+        false -> pass;
+        _ -> ssl:start()
     end,
     Params2.
 %%%%%%
+
+update_params(Pid, NewParams) -> gen_server:cast(Pid, {update_params, NewParams}).
 
 
 start_link(Params) -> gen_server:start_link(?MODULE, fix_params(Params), []).
@@ -82,7 +85,17 @@ listen(Ip, Port) ->
 
 
 handle_call(Message, From, S) -> {reply, ok, S}.
+
+handle_cast({update_params, NewParams}, S=#{params:= P=#{hosts:= Hosts, ssl_opts:= SSLOpts}}) ->
+    NewHosts = maps:get(hosts, NewParams, #{}),
+    NewSSLOpts = maps:get(ssl_opts, NewParams, []),
+
+    MergedHosts = maps:merge(Hosts, NewHosts),
+    MergedSSLOpts = lists:ukeysort(1, NewSSLOpts ++ SSLOpts),
+
+    {noreply, S#{params=> P#{hosts=> MergedHosts, ssl_opts=> MergedSSLOpts}}};
 handle_cast(Message, S) -> {noreply, S}.
+
 
 
 handle_info({inet_async, ListenSocket, _, {ok, ClientSocket}}, S=#{params:= Params}) ->

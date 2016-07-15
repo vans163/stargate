@@ -51,18 +51,16 @@ init({Params, Socket}) ->
     {ok, #{params=> Params, session_state=> #{}, nextDc=> NextDc}}.
 
 %%%% %%%%
-handle_cast({pass_socket, ClientSocket}, S=#{params:=#{ssl:= false}}) ->
-    transport_setopts(ClientSocket, [{active, once}, {packet, http_bin}]),
-    {noreply, S#{socket=> ClientSocket}};
-
 handle_cast({pass_socket, ClientSocket}, S=#{
-    params:= #{ssl:= true, certfile:= CertFile, keyfile:= KeyFile}
+    params:= #{ssl_opts:= SSLOpts}
 }) ->
-    {ok, SSLSocket} = ssl:ssl_accept(ClientSocket, [
-        {certfile, CertFile}, {keyfile, KeyFile}
-    ], 10000),
+    {ok, SSLSocket} = ssl:ssl_accept(ClientSocket, SSLOpts, 10000),
     transport_setopts(SSLSocket, [{active, once}, {packet, http_bin}]),
     {noreply, S#{socket=> SSLSocket}};
+
+handle_cast({pass_socket, ClientSocket}, S) ->
+    transport_setopts(ClientSocket, [{active, once}, {packet, http_bin}]),
+    {noreply, S#{socket=> ClientSocket}};
 %%%%% %%%%%
 
 
@@ -145,6 +143,13 @@ handle_http(Headers, Body, S=#{
 
 
 %%% HTTP / Negotiate Websockets
+
+%Ignore invalid http_request
+handle_info({T, Socket, {http_request, Type, {absoluteURI, _,_,_,Path}, HttpVer}}, S) 
+when T == http; T == ssl 
+->
+    {noreply, S#{nextDc=> 1}}
+;
 handle_info({T, Socket, {http_request, Type, {abs_path, Path}, HttpVer}}, S=#{
     session_state:= SessState
 }) when T == http; T == ssl ->
@@ -230,7 +235,7 @@ handle_info({T, Socket}, S) when T == tcp_closed; T == ssl_closed ->
 
 
 handle_info(Message, S) ->
-    ?PRINT({"INFO", Message, S}),
+    ?PRINT({"INFO", Message}),
     {noreply, S}.
 
 

@@ -19,6 +19,8 @@ Work in progress.
   - SNI  
 - ~~Websockets~~  
   - ~~Compression~~  
+- HTTP/2  
+- QUIC  
 
 ### Thinness
 ```
@@ -65,11 +67,11 @@ stargate:start_link(
   #{
       port=> 8000,
       ip=> {0,0,0,0},
-      ssl=> false,
       hosts=> #{
           {http, <<"adwords.google.com">>}=> {google_adwords, #{}},
           {http, <<"tracker.google.com">>}=> {google_tracker, #{}},
           {http, <<"google.com">>}=> {google_website, #{}},
+          {http, <<"www.google.com">>}=> {google_website, #{}},
 
           {ws, <<"adwords.google.com">>}=> {google_adwords_ws, #{}}
       }
@@ -83,23 +85,50 @@ stargate:start_link(
 %openssl req -x509 -newkey rsa:2048 -keyout key.pem \
 % -out cert.pem -days 100 -nodes -subj '/CN=localhost'
 
+
 WSCompress = #{window_bits=> 15, level=>best_speed, mem_level=>8, strategy=>default},
+stargate:start_link(
+  #{
+      port=> 8000, 
+      ip=> {0,0,0,0},
+      hosts=> #{
+          {http, <<"*">>}=> {handler_redirect, #{}},
+      }
+  }
+),
 stargate:start_link(
   #{
       port=> 8443,
       ip=> {0,0,0,0},
-      ssl=> true,
-      certfile=> "./priv/cert.pem",
-      keyfile=> "./priv/key.pem",
+      ssl_opts=> [
+        {certfile, "./priv/cert.pem"},
+        {keyfile, "./priv/key.pem"},
+
+        %{cacertfile, "./priv/lets-encrypt-x3-cross-signed.pem"}
+      ],
       hosts=> #{
           {http, <<"adwords.google.com">>}=> {google_adwords, #{}},
           {http, <<"tracker.google.com">>}=> {google_tracker, #{}},
           {http, <<"google.com">>}=> {google_website, #{}},
+          {http, <<"www.google.com">>}=> {google_website, #{}},
 
           {ws, <<"adwords.google.com">>}=> {google_adwords_ws, #{compress=> WSCompress}}
       }
   }
 )
+```
+
+### Example hotloading config
+
+```erlang
+Pid = whereis(stargate_https),
+Pid:update_params(Pid, %{
+  hosts=> #{ {http, <<"new_subdomain.google.com">>}=> {google_new, #{}} 
+  ssl_opts=> [
+    {certfile, "./priv/new_cert.pem"},
+    {keyfile, "./priv/new_key.pem"}
+  ]
+})
 ```
 
 ### Example Modules

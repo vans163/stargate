@@ -7,16 +7,17 @@ Erlang customizable webserver
 Work in progress.  
 
 ### Current Features
+
 - Simple support for HTTP  
+- hot-loading new paths  
 - SSL  
 - Websockets  
   - Compression  
 
 ### Roadmap
-- hot-loading new paths  
+- ~~hot-loading new paths~~  
 - zlib (GZIP)  
 - ~~SSL~~  
-  - SNI  
 - ~~Websockets~~  
   - ~~Compression~~  
 - HTTP/2  

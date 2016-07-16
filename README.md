@@ -16,6 +16,7 @@ Work in progress.
 
 ### Roadmap
 - ~~hot-loading new paths~~  
+- half-closed sockets  
 - zlib (GZIP)  
 - ~~SSL~~  
 - ~~Websockets~~  
@@ -122,9 +123,11 @@ stargate:start_link(
 ### Example hotloading config
 
 ```erlang
-Pid = whereis(stargate_https),
-Pid:update_params(Pid, %{
-  hosts=> #{ {http, <<"new_subdomain.google.com">>}=> {google_new, #{}} 
+Pid = whereis(stargate_ssl),
+Pid:update_params(Pid, #{
+  hosts=> #{ 
+    {http, <<"new_subdomain.google.com">>}=> {google_new, #{}
+  }, 
   ssl_opts=> [
     {certfile, "./priv/new_cert.pem"},
     {keyfile, "./priv/new_key.pem"}

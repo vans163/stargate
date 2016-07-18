@@ -137,7 +137,7 @@ handle_http(Headers, Body, S=#{
     RBin = proto_http:response(RCode, RHeaders, RBody),
     ok = transport_send(Socket, RBin),
 
-    case maps:get(Headers, 'Connection', <<"close">>) of
+    case maps:get('Connection', Headers, <<"close">>) of
         <<"keep-alive">> -> ok = transport_setopts(Socket, [{active, once}, {packet, http_bin}]);
         _ -> transport_close(Socket)
     end,

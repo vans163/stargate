@@ -55,11 +55,11 @@ handle_cast({pass_socket, ClientSocket}, S=#{
     params:= #{ssl_opts:= SSLOpts}
 }) ->
     {ok, SSLSocket} = ssl:ssl_accept(ClientSocket, SSLOpts, 10000),
-    transport_setopts(SSLSocket, [{active, once}, {packet, http_bin}]),
+    ok = transport_setopts(SSLSocket, [{active, once}, {packet, http_bin}]),
     {noreply, S#{socket=> SSLSocket}};
 
 handle_cast({pass_socket, ClientSocket}, S) ->
-    transport_setopts(ClientSocket, [{active, once}, {packet, http_bin}]),
+    ok = transport_setopts(ClientSocket, [{active, once}, {packet, http_bin}]),
     {noreply, S#{socket=> ClientSocket}};
 %%%%% %%%%%
 
@@ -113,7 +113,7 @@ handle_http(Headers=#{'Upgrade':= <<"websocket">>}, Body, S=#{
     ok = transport_send(Socket, WSResponseBin_),
     S__ = apply(WSHandlerAtom, connect, [S_]),
 
-    transport_setopts(Socket, [{active, once}, {packet, raw}, binary]),
+    ok = transport_setopts(Socket, [{active, once}, {packet, raw}, binary]),
     timer:send_after(?WS_PING_INTERVAL, ws_ping),
     S__#{ws_handler=> WSHandlerAtom, ws_buf=> <<>>}
     ;
@@ -137,7 +137,10 @@ handle_http(Headers, Body, S=#{
     RBin = proto_http:response(RCode, RHeaders, RBody),
     ok = transport_send(Socket, RBin),
 
-    transport_close(Socket),
+    case maps:get(Headers, 'Connection', <<"close">>) of
+        <<"keep-alive">> -> ok = transport_setopts(Socket, [{active, once}, {packet, http_bin}]);
+        _ -> transport_close(Socket)
+    end,
     S#{session_state=> SS2}
     .
 
@@ -196,7 +199,7 @@ when T == tcp; T == ssl->
             S#{ws_buf=> Buffer}
     end,
 
-    transport_setopts(Socket, [{active, once}, binary]),
+    ok = transport_setopts(Socket, [{active, once}, binary]),
 
     NextDc = unix_time() + ?MAX_TCP_TIMEOUT_SEC,
     {noreply, S3#{nextDc=> NextDc}}

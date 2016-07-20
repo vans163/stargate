@@ -111,8 +111,8 @@ stargate:start_link(
       hosts=> #{
           {http, <<"adwords.google.com">>}=> {google_adwords, #{}},
           {http, <<"tracker.google.com">>}=> {google_tracker, #{}},
-          {http, <<"google.com">>}=> {google_website, #{}},
           {http, <<"www.google.com">>}=> {google_website, #{}},
+          {http, <<"google.com">>}=> {google_website, #{}},
 
           {ws, <<"adwords.google.com">>}=> {google_adwords_ws, #{compress=> WSCompress}}
       }
@@ -143,13 +143,16 @@ Pid:update_params(Pid, #{
 -module(google_adwords).
 -export([http/6]).
 
+transport_peername(SSLSocket={sslsocket, _, _}) -> ssl:peername(SSLSocket);
+transport_peername(Socket) -> inet:peername(Socket).
+
 http('GET', <<"/click">>, #{...}=Query, #{...}=HttpHeaders, <<Body>>, #{...}=S) ->
     Socket = maps:get(socket, S),
-    {ok, {SourceAddr, _}} = inet:peername(Socket),
+    {ok, {SourceAddr, _}} = transport_peername(Socket),
     
-    ExtraHeaders = #{},
+    ReplyHeaders = #{},
     ReplyBody = <<>>,
-    {200, ExtraHeaders, ReplyBody, S}
+    {200, ReplyHeaders, ReplyBody, S}
     .
     
 % Response payload:

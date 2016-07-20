@@ -73,10 +73,7 @@ response(Code, Headers, Body) ->
     end,
     
     BodySize = integer_to_binary(byte_size(Body)),
-    HeadersFinal = case BodySize of
-        <<"0">> -> Headers;
-        _ -> maps:put(<<"Content-Length">>, BodySize, Headers)
-    end,
+    HeadersFinal = maps:put(<<"Content-Length">>, BodySize, Headers),
 
     Bin = <<"HTTP/1.1 ", Code/binary, " ", (response_code(Code))/binary, "\r\n">>,
     HeaderBin = maps:fold(fun(K,V,Acc) ->

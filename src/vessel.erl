@@ -10,11 +10,13 @@
          terminate/2,
          code_change/3]).
 
--export([ws_send/2, ws_send/3]).
+-export([cast/3, ws_send/2, ws_send/3]).
 
 
 -include("global.hrl").
 
+cast(Pid, Name, Params) ->
+    gen_server:cast(Pid, {cast, Name, Params}).
 
 %%%%% Websocket Stuff %%%%
 
@@ -39,6 +41,14 @@ ws_send(Pid, Payload, bin_compress) ->
 
 
 
+p_send(Socket, Bin, S=#{params:= #{error_logger:= ELogger}}) ->
+    case transport_send(Socket, Bin) of
+        ok -> {noreply, S};
+        {error, Error} -> 
+            ELogger(Socket, <<"transport_send">>, Error),
+            {stop, {shutdown, tcp_closed}, S}
+    end
+    .
 
 start(Params) -> {ok, Pid} = start_link(Params), Pid.
 start_link(Params) -> gen_server:start(?MODULE, Params, []).
@@ -51,12 +61,17 @@ init({Params, Socket}) ->
     {ok, #{params=> Params, session_state=> #{}, nextDc=> NextDc}}.
 
 %%%% %%%%
-handle_cast({pass_socket, ClientSocket}, S=#{
-    params:= #{ssl_opts:= SSLOpts}
-}) ->
+handle_cast({pass_socket, ClientSocket}, S=#{params:= #{ssl_opts:= SSLOpts, error_logger:= ELogger}}) ->
     {ok, SSLSocket} = ssl:ssl_accept(ClientSocket, SSLOpts, 10000),
-    ok = transport_setopts(SSLSocket, [{active, once}, {packet, http_bin}]),
-    {noreply, S#{socket=> SSLSocket}};
+    case ssl:ssl_accept(ClientSocket, SSLOpts, 30000) of
+        {ok, SSLSocket} ->
+            ok = transport_setopts(SSLSocket, [{active, once}, {packet, http_bin}]),
+            {noreply, S#{socket=> SSLSocket}};
+
+        {error, Error} ->
+            ELogger(ClientSocket, <<"ssl_accept">>, Error),
+            {stop, {shutdown, tcp_closed}, S}
+    end;
 
 handle_cast({pass_socket, ClientSocket}, S) ->
     ok = transport_setopts(ClientSocket, [{active, once}, {packet, http_bin}]),
@@ -65,24 +80,31 @@ handle_cast({pass_socket, ClientSocket}, S) ->
 
 
 handle_cast({ws_send, Payload}, S=#{socket:= Socket}) ->
-    ok = transport_send(Socket, proto_ws:encode_frame(Payload)),
-    {noreply, S};
+    Bin = proto_ws:encode_frame(Payload),
+    p_send(Socket, Bin, S);
+
 handle_cast({ws_send_compress, Payload}, S=#{socket:= Socket}) ->
-    case maps:get(zdeflate, S, undefined) of
-        undefined -> ok = transport_send(Socket, proto_ws:encode_frame(Payload));
-        ZDeflate -> 
+    Bin = case maps:get(zdeflate, S, undefined) of
+        undefined -> proto_ws:encode_frame(Payload);
+        ZDeflate ->
             Payload_ = proto_ws:deflate(ZDeflate, Payload),
-            Bin = proto_ws:encode_frame(Payload_, compress),
-            ok = transport_send(Socket, Bin)
+            proto_ws:encode_frame(Payload_, compress)
     end,
-    {noreply, S};
+    p_send(Socket, Bin, S);
 handle_cast({ws_send_bin_compress, Payload}, S=#{socket:= Socket}) ->
-    case maps:get(zdeflate, S, undefined) of
-        undefined -> ok = transport_send(Socket, proto_ws:encode_frame(Payload, bin));
-        ZDeflate -> 
+    Bin = case maps:get(zdeflate, S, undefined) of
+        undefined -> proto_ws:encode_frame(Payload, bin);
+        ZDeflate ->
             Payload_ = proto_ws:deflate(ZDeflate, Payload),
-            Bin = proto_ws:encode_frame(Payload_, ws_send_bin_compress),
-            ok = transport_send(Socket, Bin)
+            proto_ws:encode_frame(Payload_, bin_compress)
+    end,
+    p_send(Socket, Bin, S);
+
+handle_cast({cast, Name, Params}, S=#{socket:= Socket, ws_handler:= WSHandler}) ->
+    try
+        apply(WSHandler, handle_cast, [Name, Params, S])
+    catch
+        E:R -> ?PRINT({"cast apply failed", Name, Params, E, R})
     end,
     {noreply, S};
 
@@ -213,8 +235,7 @@ when T == tcp; T == ssl->
 
 handle_info(ws_ping, S=#{socket:= Socket}) ->
     timer:send_after(?WS_PING_INTERVAL, ws_ping),
-    ok = transport_send(Socket, proto_ws:encode_frame(ping)),
-    {noreply, S};
+    p_send(Socket, proto_ws:encode_frame(ping), S);
 %%%
 
 

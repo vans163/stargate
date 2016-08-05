@@ -76,7 +76,11 @@ stargate:start_link(
           {http, <<"www.google.com">>}=> {google_website, #{}},
 
           {ws, <<"adwords.google.com">>}=> {google_adwords_ws, #{}}
-      }
+      },
+      error_logger=> fun(Socket, What, Error) -> 
+        Trace = try throw(42) catch 42 -> erlang:get_stacktrace() end,
+        io:format("~p~n", [{transport_peername(Socket), What, Error, Trace}])
+      end
   }
 )
 

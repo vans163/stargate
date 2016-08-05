@@ -65,7 +65,19 @@ fix_params(Params) ->
         false -> pass;
         _ -> ssl:start()
     end,
-    Params2.
+
+    ErrorLogger = maps:get(error_logger, Params2, undefined),
+    case ErrorLogger of
+        undefined ->
+            maps:put(error_logger, 
+                fun(Socket, What, Error) -> 
+                    Trace = try throw(42) catch 42 -> erlang:get_stacktrace() end,
+                    io:format("~p~n", [{transport_peername(Socket), What, Error, Trace}])
+                end,
+                Params2
+            );
+        _ -> Params2
+    end.
 %%%%%%
 
 update_params(Pid, NewParams) -> gen_server:cast(Pid, {update_params, NewParams}).

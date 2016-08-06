@@ -43,9 +43,10 @@ ws_send(Pid, Payload, bin_compress) ->
 
 p_send(Socket, Bin, S=#{params:= #{error_logger:= ELogger}}) ->
     case transport_send(Socket, Bin) of
-        ok -> {noreply, S};
+        ok -> 
+            {noreply, S};
         {error, Error} -> 
-            ELogger(Socket, <<"transport_send">>, Error),
+            %ELogger(Socket, <<"transport_send">>, Error),
             {stop, {shutdown, tcp_closed}, S}
     end
     .
@@ -62,7 +63,6 @@ init({Params, Socket}) ->
 
 %%%% %%%%
 handle_cast({pass_socket, ClientSocket}, S=#{params:= #{ssl_opts:= SSLOpts, error_logger:= ELogger}}) ->
-    {ok, SSLSocket} = ssl:ssl_accept(ClientSocket, SSLOpts, 10000),
     case ssl:ssl_accept(ClientSocket, SSLOpts, 30000) of
         {ok, SSLSocket} ->
             ok = transport_setopts(SSLSocket, [{active, once}, {packet, http_bin}]),

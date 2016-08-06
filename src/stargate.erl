@@ -115,7 +115,7 @@ handle_info({inet_async, ListenSocket, _, {ok, ClientSocket}}, S=#{params:= Para
     inet_db:register_socket(ClientSocket, inet_tcp),
 
     Pid = vessel:start({Params, ClientSocket}),
-    gen_tcp:controlling_process(ClientSocket, Pid),
+    ok = gen_tcp:controlling_process(ClientSocket, Pid),
     gen_server:cast(Pid, {pass_socket, ClientSocket}),
 
     prim_inet:async_accept(ListenSocket, -1),

@@ -204,34 +204,35 @@ handle_info({T, Socket, {http_error, _}}, S=#{
 %%% Websockets
 handle_info({T, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) 
 when T == tcp; T == ssl->
+    NextDc = unix_time() + ?MAX_TCP_TIMEOUT_SEC,
     S3 = case proto_ws:decode_frame(<<WSBuf/binary, Bin/binary>>) of
         %close
         {ok, 8, _, _, Buffer} ->
             transport_close(Socket),
-            S#{ws_buf=> Buffer};
+            {noreply, S#{nextDc=> NextDc, ws_buf=> Buffer}};
 
         %pong
         {ok, 10, _, _, Buffer} ->
-            S#{ws_buf=> Buffer};
+            ok = transport_setopts(Socket, [{active, once}, binary]),
+            {noreply, S#{nextDc=> NextDc, ws_buf=> Buffer}};
 
         {ok, Opcode, 1, Payload, Buffer} ->
             Payload_ = zlib:inflate(maps:get(zinflate, S), <<Payload/binary,0,0,255,255>>),
             S2 = apply(WSHandler, msg, [iolist_to_binary(Payload_), S]),
-            S2#{ws_buf=> Buffer};
+
+            ok = transport_setopts(Socket, [{active, once}, binary]),
+            {noreply, S2#{nextDc=> NextDc, ws_buf=> Buffer}};
 
         {ok, Opcode, 0, Payload, Buffer} ->
             S2 = apply(WSHandler, msg, [Payload, S]),
-            S2#{ws_buf=> Buffer};
+
+            ok = transport_setopts(Socket, [{active, once}, binary]),
+            {noreply, S2#{nextDc=> NextDc, ws_buf=> Buffer}};
 
         {incomplete, Buffer} ->
-            S#{ws_buf=> Buffer}
-    end,
-
-    ok = transport_setopts(Socket, [{active, once}, binary]),
-
-    NextDc = unix_time() + ?MAX_TCP_TIMEOUT_SEC,
-    {noreply, S3#{nextDc=> NextDc}}
-;
+            ok = transport_setopts(Socket, [{active, once}, binary]),
+            {noreply, S#{nextDc=> NextDc, ws_buf=> Buffer}}
+    end;
 
 handle_info(ws_ping, S=#{socket:= Socket}) ->
     timer:send_after(?WS_PING_INTERVAL, ws_ping),

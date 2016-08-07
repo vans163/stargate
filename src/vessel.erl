@@ -257,10 +257,6 @@ handle_info(stalled, S=#{nextDc:= NextDc}) ->
 
 handle_info({T, Socket}, S) when T == tcp_closed; T == ssl_closed ->
     %WS / WSS
-    case maps:get(ws_handler, S, undefined) of
-        undefined -> pass;
-        WSHandler -> apply(WSHandler, disconnect, [S])
-    end,
     {stop, {shutdown, tcp_closed}, S};
 %%%
 
@@ -270,9 +266,20 @@ handle_info(Message, S) ->
     {noreply, S}.
 
 
-terminate({shutdown, tcp_closed}, S) -> ok;
+forward_ws_closed(S) ->
+    case maps:get(ws_handler, S, undefined) of
+        undefined -> pass;
+        WSHandler -> apply(WSHandler, disconnect, [S])
+    end
+    .
+
+terminate({shutdown, tcp_closed}, S) ->
+    forward_ws_closed(S),
+    ok;
 terminate(_Reason, S) -> 
-    ?PRINT({"Terminated", _Reason, S})
+    ?PRINT({"Terminated", _Reason, S}),
+    forward_ws_closed(S),
+    ok
     .
 
 code_change(_OldVersion, S, _Extra) -> {ok, S}. 

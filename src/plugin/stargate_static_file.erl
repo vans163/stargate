@@ -40,8 +40,8 @@ can_accept_gzip(Headers) ->
     end
     .
 
-serve_static(Path, Headers, S) ->
-    Fullpath = <<(sanitize_path(Path))/binary>>,
+serve_static(Base, DirtyPath, Headers, S) ->
+    Fullpath = <<Base/binary, (sanitize_path(DirtyPath))/binary>>,
     case filelib:is_regular(Fullpath) of
         false -> 
             {404, #{}, <<>>, S};

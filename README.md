@@ -10,6 +10,7 @@ Work in progress.
 
 - Simple support for HTTP  
 - hot-loading new paths  
+- GZIP
 - SSL  
 - Websockets  
   - Compression  
@@ -17,7 +18,7 @@ Work in progress.
 ### Roadmap
 - ~~hot-loading new paths~~  
 - half-closed sockets  
-- zlib (GZIP)  
+- ~~ zlib (GZIP) ~~
 - ~~SSL~~  
 - ~~Websockets~~  
   - ~~Compression~~  
@@ -137,6 +138,17 @@ Pid:update_params(Pid, #{
     {keyfile, "./priv/new_key.pem"}
   ]
 })
+```
+
+### Example GZip
+```erlang
+Headers = #{'Accept-Encoding'=> <<"gzip">>, <<"ETag">>=> <<"12345">>},
+S = old_state,
+{ReplyCode, ReplyHeaders, ReplyBody, NewState} = 
+  stargate_plugin:serve_static(<<"./priv/website/">>, <<"index.html">>, Headers, S),
+
+ReplyCode = 200,
+ReplyHeaders = #{<<"Content-Encoding">>=> <<"gzip">>, <<"ETag">>=> <<"54321">>},
 ```
 
 ### Example Modules

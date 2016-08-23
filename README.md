@@ -150,6 +150,9 @@ Pid:update_params(Pid, #{
 transport_peername(SSLSocket={sslsocket, _, _}) -> ssl:peername(SSLSocket);
 transport_peername(Socket) -> inet:peername(Socket).
 
+http('GET', <<"/">>, Query, Headers, Body, S) ->
+    stargate_plugin:serve_static(<<"./priv/website/", "index.html">>, Headers, S);
+
 http('GET', <<"/click">>, #{...}=Query, #{...}=HttpHeaders, <<Body>>, #{...}=S) ->
     Socket = maps:get(socket, S),
     {ok, {SourceAddr, _}} = transport_peername(Socket),

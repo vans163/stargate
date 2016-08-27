@@ -18,7 +18,7 @@ Work in progress.
 ### Roadmap
 - ~~hot-loading new paths~~  
 - half-closed sockets  
-- ~~ zlib (GZIP) ~~
+- ~~zlib (GZIP)~~
 - ~~SSL~~  
 - ~~Websockets~~  
   - ~~Compression~~  
@@ -131,7 +131,7 @@ stargate:start_link(
 Pid = whereis(stargate_ssl),
 Pid:update_params(Pid, #{
   hosts=> #{ 
-    {http, <<"new_subdomain.google.com">>}=> {google_new, #{}
+    {http, <<"new_subdomain.google.com">>}=> {google_new, #{}}
   }, 
   ssl_opts=> [
     {certfile, "./priv/new_cert.pem"},

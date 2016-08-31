@@ -208,34 +208,34 @@ handle_info({T, Socket, {http_error, _}}, S=#{
 handle_info({T, Socket, Bin}, S=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) 
 when T == tcp; T == ssl->
     NextDc = unix_time() + ?MAX_TCP_TIMEOUT_SEC,
-    S3 = case proto_ws:decode_frame(<<WSBuf/binary, Bin/binary>>) of
-        %close
-        {ok, 8, _, _, Buffer} ->
-            transport_close(Socket),
-            {noreply, S#{nextDc=> NextDc, ws_buf=> Buffer}};
+    ok = transport_setopts(Socket, [{active, once}, binary]),
+    
+            %close
+    D = fun Decode({ok, 8, _, _, Buffer}, _S) -> 
+                transport_close(Socket),
+                {noreply, _S#{nextDc=> NextDc, ws_buf=> Buffer}};
 
-        %pong
-        {ok, 10, _, _, Buffer} ->
-            ok = transport_setopts(Socket, [{active, once}, binary]),
-            {noreply, S#{nextDc=> NextDc, ws_buf=> Buffer}};
+            %pong
+            Decode({ok, 10, _, _, Buffer}, _S) ->
+                Decode(proto_ws:decode_frame(Buffer), _S);
 
-        {ok, Opcode, 1, Payload, Buffer} ->
-            Payload_ = zlib:inflate(maps:get(zinflate, S), <<Payload/binary,0,0,255,255>>),
-            S2 = apply(WSHandler, msg, [iolist_to_binary(Payload_), S]),
+            %compressed
+            Decode({ok, Opcode, 1, Payload, Buffer}, _S) ->
+                Payload_ = zlib:inflate(maps:get(zinflate, _S), <<Payload/binary,0,0,255,255>>),
+                _S2 = apply(WSHandler, msg, [iolist_to_binary(Payload_), _S]),
+                Decode(proto_ws:decode_frame(Buffer), _S2);
 
-            ok = transport_setopts(Socket, [{active, once}, binary]),
-            {noreply, S2#{nextDc=> NextDc, ws_buf=> Buffer}};
+            %regular
+            Decode({ok, Opcode, 0, Payload, Buffer}, _S) ->
+                _S2 = apply(WSHandler, msg, [Payload, _S]),
+                Decode(proto_ws:decode_frame(Buffer), _S2);
 
-        {ok, Opcode, 0, Payload, Buffer} ->
-            S2 = apply(WSHandler, msg, [Payload, S]),
+            %incomplete
+            Decode({incomplete, Buffer}, _S) ->
+                {noreply, _S#{nextDc=> NextDc, ws_buf=> Buffer}}
+    end,
+    D(proto_ws:decode_frame(<<WSBuf/binary, Bin/binary>>), S);
 
-            ok = transport_setopts(Socket, [{active, once}, binary]),
-            {noreply, S2#{nextDc=> NextDc, ws_buf=> Buffer}};
-
-        {incomplete, Buffer} ->
-            ok = transport_setopts(Socket, [{active, once}, binary]),
-            {noreply, S#{nextDc=> NextDc, ws_buf=> Buffer}}
-    end;
 
 handle_info(ws_ping, S=#{socket:= Socket}) ->
     timer:send_after(?WS_PING_INTERVAL, ws_ping),

@@ -107,6 +107,7 @@ xor_payload(<<Chunk:8, Rest/binary>>, M= <<Mask:8, _/binary>>, Acc) ->
     .
 
 
+decode_frame(<<>>) -> {incomplete, <<>>};
 decode_frame(Chunk= <<Fin:1, RSV1:1, RSV2:1, RSV3:1, 
         Opcode:4, Rest/binary>>) ->
     

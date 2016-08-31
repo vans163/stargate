@@ -26,13 +26,12 @@ ws_send(Pid, ping) ->
 ws_send(Pid, close) -> 
     Bin = proto_ws:encode_frame(close),
     gen_server:cast(Pid, {ws_send, Bin});
+    
 ws_send(Pid, Payload) -> 
-    Bin = proto_ws:encode_frame(Payload),
-    gen_server:cast(Pid, {ws_send, Bin}).
+    gen_server:cast(Pid, {ws_send, Payload}).
 
 ws_send(Pid, Payload, bin) ->
-    Bin = proto_ws:encode_frame(Payload, bin),
-    gen_server:cast(Pid, {ws_send, Bin});
+    gen_server:cast(Pid, {ws_send_bin, Payload});
 
 ws_send(Pid, Payload, compress) ->
     gen_server:cast(Pid, {ws_send_compress, Payload});
@@ -81,6 +80,10 @@ handle_cast({pass_socket, ClientSocket}, S) ->
 
 handle_cast({ws_send, Payload}, S=#{socket:= Socket}) ->
     Bin = proto_ws:encode_frame(Payload),
+    p_send(Socket, Bin, S);
+
+handle_cast({ws_send_bin, Payload}, S=#{socket:= Socket}) ->
+    Bin = proto_ws:encode_frame(Payload, bin),
     p_send(Socket, Bin, S);
 
 handle_cast({ws_send_compress, Payload}, S=#{socket:= Socket}) ->

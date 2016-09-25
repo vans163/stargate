@@ -169,8 +169,12 @@ handle_http(Headers, Body, S=#{
     ok = transport_send(Socket, RBin),
 
     case ConnectionHeader of
-        <<"keep-alive">> -> ok = transport_setopts(Socket, [{active, once}, {packet, http_bin}]);
-        _ -> transport_close(Socket)
+        <<"keep-alive">> -> 
+            ok = transport_setopts(Socket, [{active, once}, {packet, http_bin}]);
+            
+        _ ->
+            %?PRINT({"closing transport"}), 
+            ok = transport_close(Socket)
     end,
     S#{session_state=> SS2}
     .
@@ -249,6 +253,7 @@ handle_info(stalled, S=#{nextDc:= NextDc}) ->
     Now = unix_time(),
     if
         Now > NextDc ->
+            ?PRINT({"Stalled"}),
             case maps:get(socket, S, undefined) of
                 undefined -> pass;
                 Socket -> transport_close(Socket)
@@ -260,6 +265,7 @@ handle_info(stalled, S=#{nextDc:= NextDc}) ->
 
 handle_info({T, Socket}, S) when T == tcp_closed; T == ssl_closed ->
     %WS / WSS
+    ?PRINT({"Closed socket"}),
     {stop, {shutdown, tcp_closed}, S};
 %%%
 
@@ -277,6 +283,7 @@ forward_ws_closed(S) ->
     .
 
 terminate({shutdown, tcp_closed}, S) ->
+    ?PRINT({"terminate"}),
     forward_ws_closed(S),
     ok;
 terminate(_Reason, S) -> 

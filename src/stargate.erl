@@ -86,13 +86,22 @@ update_params(Pid, NewParams) -> gen_server:cast(Pid, {update_params, NewParams}
 start_link(Params) -> gen_server:start_link(?MODULE, fix_params(Params), []).
 
 init(Params=#{ip:=BindIp, port:=BindPort}) ->
-    listen(BindIp, BindPort),
+    ListenSocket = listen(BindIp, BindPort),
+    acceptor:start_link({Params, ListenSocket, 1}),
+    acceptor:start_link({Params, ListenSocket, 2}),
+    acceptor:start_link({Params, ListenSocket, 3}),
+    acceptor:start_link({Params, ListenSocket, 4}),
+    acceptor:start_link({Params, ListenSocket, 4}),
+    acceptor:start_link({Params, ListenSocket, 4}),
+    acceptor:start_link({Params, ListenSocket, 4}),
+    acceptor:start_link({Params, ListenSocket, 4}),
+
     {ok, #{params=> Params}}.
     
 
 listen(Ip, Port) ->
     {ok, ListenSock} = gen_tcp:listen(Port, [{ip, Ip}, {active, false}, {reuseaddr, true}]),
-    {ok, _} = prim_inet:async_accept(ListenSock, -1),
+    %{ok, _} = prim_inet:async_accept(ListenSock, -1),
     ListenSock.
 
 
@@ -112,14 +121,25 @@ handle_cast(Message, S) -> {noreply, S}.
 
 handle_info({inet_async, ListenSocket, _, {ok, ClientSocket}}, S=#{params:= Params}) ->
     %register_socket or send will crash
+    T1 = os:perf_counter(nanosecond),
+
     inet_db:register_socket(ClientSocket, inet_tcp),
 
-    Pid = vessel:start({Params, ClientSocket}),
+    %Pid = vessel:start({Params, ClientSocket}),
+    {ok, Pid} = vessel_gen_statem:start_link({Params, ClientSocket}),
     ok = gen_tcp:controlling_process(ClientSocket, Pid),
-    gen_server:cast(Pid, {pass_socket, ClientSocket}),
+    Pid ! {pass_socket, ClientSocket},
+    %gen_server:cast(Pid, {pass_socket, ClientSocket}),
 
     prim_inet:async_accept(ListenSocket, -1),
+    T2 = os:perf_counter(nanosecond),
+    ?PRINT({T2 - T1}),
     {noreply, S};
+
+handle_info({inet_async, ListenSocket, _, Error}, S) ->
+    ?PRINT({"Error in inet_async accept, shutting down", Error}),
+    {stop, Error, S};
+
 handle_info(Message, S) -> {noreply, S}.
 
 

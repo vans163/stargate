@@ -38,14 +38,14 @@ recv(Socket) ->
     {HttpHeaders, Body}.
 
 recv_headers(Socket) ->
-    ok = transport_setopts(Socket, [{active, false}, {packet, httph_bin}]),
+    ok = ?TRANSPORT_SETOPTS(Socket, [{active, false}, {packet, httph_bin}]),
     recv_headers_1(Socket).
 
 %TODO: This does not count the Header Key, ops
 recv_headers_1(Socket) -> recv_headers_1(Socket, #{}, 0).
 recv_headers_1(_, _, Size) when Size > ?HTTP_MAX_HEADER_SIZE -> throw(max_header_size_exceeded);
 recv_headers_1(Socket, Map, Size) ->
-    case transport_recv(Socket, 0, ?TIMEOUT) of
+    case ?TRANSPORT_RECV(Socket, 0, ?TIMEOUT) of
         {ok, {http_header,_,Key,undefined, Value}} -> 
             recv_headers_1(Socket, Map#{Key=>Value}, Size + byte_size(Value));
         {ok, http_eoh} -> Map
@@ -57,8 +57,8 @@ recv_body(Socket, ContLen) when is_binary(ContLen) ->
     recv_body(Socket, binary_to_integer(ContLen));
 recv_body(Socket, ContLen) when ContLen > ?HTTP_MAX_BODY_SIZE -> throw(max_body_size_exceeded);
 recv_body(Socket, ContLen) ->
-    ok = transport_setopts(Socket, [{active, false}, {packet, raw}, binary]),
-    {ok, Body} = transport_recv(Socket, ContLen, ?TIMEOUT),
+    ok = ?TRANSPORT_SETOPTS(Socket, [{active, false}, {packet, raw}, binary]),
+    {ok, Body} = ?TRANSPORT_RECV(Socket, ContLen, ?TIMEOUT),
     Body.
 
 

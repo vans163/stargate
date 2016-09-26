@@ -1,7 +1,7 @@
 -module(stargate).
 
--export([warp_in/2]).
--export([warp_out/2]).
+-export([warp_in/1, warp_in/2]).
+-export([warp_out/1, warp_out/2]).
 -export([update_params/2]).
 
 -export([launch_demo/0]).
@@ -9,9 +9,15 @@
 -include("global.hrl").
 
 
+warp_in(StargateArgs) ->
+    SupPid = whereis(stargate_sup),
+    warp_in(SupPid, StargateArgs).
+warp_out(Pid) ->
+    SupPid = whereis(stargate_sup),
+    warp_out(SupPid, Pid).
+
 warp_in(SupPid, StargateArgs) ->
     stargate_sup:start_child(SupPid, fix_params(StargateArgs)).
-
 warp_out(SupPid, Pid) ->
     stargate_sup:delete_child(SupPid, Pid).
 
@@ -22,7 +28,7 @@ update_params(Pid, NewParams) ->
 
 
 launch_demo() ->
-    application:start(stargate),
+    {ok, _} = application:ensure_all_started(stargate),
 
     HttpArgs = #{
         port=> 8000,
@@ -48,9 +54,8 @@ launch_demo() ->
         }
     },
 
-    warp_in(HttpArgs),
-    warp_in(HttpsArgs)
-    .
+    {ok, HttpServerPid} = warp_in(HttpArgs),
+    {ok, HttpsServerPid} = warp_in(HttpsArgs).
 
 
 
@@ -83,7 +88,7 @@ fix_params(Params) ->
             maps:put(error_logger, 
                 fun(Socket, What, Error) -> 
                     Trace = try throw(42) catch 42 -> erlang:get_stacktrace() end,
-                    io:format("~p~n", [{transport_peername(Socket), What, Error, Trace}])
+                    io:format("~p~n", [{?TRANSPORT_PEERNAME(Socket), What, Error, Trace}])
                 end,
                 Params2
             );

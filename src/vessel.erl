@@ -9,6 +9,7 @@
 callback_mode() ->  handle_event_function.
 
 start(Params) -> gen_statem:start(?MODULE, Params, []).
+start_link(Params) -> gen_statem:start_link(?MODULE, Params, []).
 
 init(Params) ->
     process_flag(trap_exit, true),
@@ -27,7 +28,7 @@ handle_event(info, {pass_socket, ClientSocket}, waiting_socket,
 ->
     case ssl:ssl_accept(ClientSocket, SSLOpts, 30000) of
         {ok, SSLSocket} ->
-            ok = transport_setopts(SSLSocket, [{active, once}, {packet, http_bin}]),
+            ok = ?TRANSPORT_SETOPTS(SSLSocket, [{active, once}, {packet, http_bin}]),
             {next_state, https, D#{socket=> SSLSocket}};
 
         {error, Error} ->
@@ -36,7 +37,7 @@ handle_event(info, {pass_socket, ClientSocket}, waiting_socket,
     end;
 %waiting_socket - Regular
 handle_event(info, {pass_socket, ClientSocket}, waiting_socket, D) ->
-    ok = transport_setopts(ClientSocket, [{active, once}, {packet, http_bin}]),
+    ok = ?TRANSPORT_SETOPTS(ClientSocket, [{active, once}, {packet, http_bin}]),
     {next_state, http, D#{socket=> ClientSocket}};
 
 
@@ -75,29 +76,29 @@ handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVe
 
     case http_chain:proc(Type, Path, Query, Headers, Body, D) of
         {http_close, RespBin, D2} ->
-            transport_send(Socket, RespBin),
-            transport_close(Socket),
+            ?TRANSPORT_SEND(Socket, RespBin),
+            ?TRANSPORT_CLOSE(Socket),
             {stop, {shutdown, tcp_closed}, D2};
 
         {http_keepalive, RespBin, D2} ->
-            case transport_send(Socket, RespBin) of
+            case ?TRANSPORT_SEND(Socket, RespBin) of
                 {error, _Error} -> 
                     %ELogger(Socket, <<"transport_send">>, Error),
                     {stop, {shutdown, tcp_closed}, D2};
 
                 ok ->
-                    ok = transport_setopts(Socket, [{active, once}, {packet, http_bin}]),
+                    ok = ?TRANSPORT_SETOPTS(Socket, [{active, once}, {packet, http_bin}]),
                     {next_state, S, D2, ?MAX_TCP_TIMEOUT}
             end;
 
         {websocket_upgrade, RespBin, D2} ->
-            case transport_send(Socket, RespBin) of
+            case ?TRANSPORT_SEND(Socket, RespBin) of
                 {error, _Error} -> 
                     %ELogger(Socket, <<"transport_send">>, Error),
                     {stop, {shutdown, tcp_closed}, D2};
 
                 ok ->
-                    ok = transport_setopts(Socket, [{active, once}, {packet, raw}, binary]),
+                    ok = ?TRANSPORT_SETOPTS(Socket, [{active, once}, {packet, raw}, binary]),
                     erlang:send_after(?WS_PING_INTERVAL, ws_ping),
 
                     {next_state, websocket, D2, ?MAX_TCP_TIMEOUT}
@@ -110,11 +111,11 @@ handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVe
 handle_event(info, {T, Socket, Bin}, websocket, 
     D=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) 
 when T == tcp; T == ssl ->
-    ok = transport_setopts(Socket, [{active, once}, binary]),
+    ok = ?TRANSPORT_SETOPTS(Socket, [{active, once}, binary]),
     
             %close
     (fun Decode({ok, 8, _, _, _Buffer}, _D) -> 
-                transport_close(Socket),
+                ?TRANSPORT_CLOSE(Socket),
                 {stop, {shutdown, tcp_closed}, _D};
 
             %pong
@@ -202,7 +203,7 @@ forward_ws_closed(#{ws_handler:= WSHandler, temp_state:= TempState}) ->
 forward_ws_closed(_) -> ok.
 
 p_send(Socket, Bin, S, D=#{params:= #{error_logger:= _ELogger}}) ->
-    case transport_send(Socket, Bin) of
+    case ?TRANSPORT_SEND(Socket, Bin) of
         ok -> 
             {next_state, S, D, ?MAX_TCP_TIMEOUT};
 

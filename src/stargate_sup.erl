@@ -4,9 +4,10 @@
 -export([start_link/0]).
 -export([init/1]).
 
+-export([start_child/2, delete_child/2]).
 
 start_link() -> 
-    supervisor:start_link(?MODULE, []).
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
     Spec = {
@@ -15,7 +16,7 @@ init([]) ->
     },
 
     {ok,
-        {{simple_one_for_one, 0, 1}, [Spec]}
+        {{simple_one_for_one, 2, 10}, [Spec]}
     }.
 
 

@@ -39,4 +39,3 @@ terminate(_Reason, S) ->
 handle_cast(_Message, S) -> {noreply, S}.
 handle_call(_Message, _From, S) -> {reply, ok, S}.
 code_change(_OldVersion, S, _Extra) -> {ok, S}. 
-

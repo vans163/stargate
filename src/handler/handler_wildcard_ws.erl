@@ -7,7 +7,7 @@
 
 connect(S) ->
     Socket = maps:get(socket, S),
-    {ok, {SourceAddr, _}} = transport_peername(Socket),
+    {ok, {SourceAddr, _}} = ?TRANSPORT_PEERNAME(Socket),
     ?PRINT({"WS_Unhandled: Connect", SourceAddr, self()}),
     S.
 disconnect(S) -> 

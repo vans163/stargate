@@ -145,8 +145,6 @@ decode_frame(Chunk= <<Fin:1, RSV1:1, RSV2:1, RSV3:1,
 .
 
 
-
-
 encode_frame(ping) -> encode_frame(<<>>, ping);
 encode_frame(close) -> encode_frame(<<>>, close).
 
@@ -160,15 +158,9 @@ encode_frame(Bin, ping) -> encode_frame(Bin, 0, 9);
 encode_frame(Bin, text_compress) -> encode_frame(Bin, 1, 1);
 encode_frame(Bin, bin_compress) -> encode_frame(Bin, 1, 2).
 
-
 encode_frame(Bin, RSV1, Type) when byte_size(Bin) =< 125 ->
-    <<1:1, RSV1:1, 0:1, 0:1, Type:4, 0:1, (byte_size(Bin)):7, Bin/binary>>
-;
-
+    <<1:1, RSV1:1, 0:1, 0:1, Type:4, 0:1, (byte_size(Bin)):7, Bin/binary>>;
 encode_frame(Bin, RSV1, Type) when byte_size(Bin) =< 65536 ->
-    <<1:1, RSV1:1, 0:1, 0:1, Type:4, 0:1, 126:7, (byte_size(Bin)):16, Bin/binary>>
-;
-
+    <<1:1, RSV1:1, 0:1, 0:1, Type:4, 0:1, 126:7, (byte_size(Bin)):16, Bin/binary>>;
 encode_frame(Bin, RSV1, Type) ->
-    <<1:1, RSV1:1, 0:1, 0:1, Type:4, 0:1, 127:7, (byte_size(Bin)):64, Bin/binary>>
-.
+    <<1:1, RSV1:1, 0:1, 0:1, Type:4, 0:1, 127:7, (byte_size(Bin)):64, Bin/binary>>.

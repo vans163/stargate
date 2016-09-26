@@ -81,6 +81,3 @@ serve_static_gzip(Bin, Etag) ->
         true -> 
             {200, #{<<"Content-Encoding">>=> <<"gzip">>, <<"Etag">>=> Crc32}, GZipBin}
     end.
-
-
-

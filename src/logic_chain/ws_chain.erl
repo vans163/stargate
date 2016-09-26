@@ -1,4 +1,5 @@
 -module(ws_chain).
+-compile(export_all).
 
 get_ws_handler(Host, Path, Hosts) ->
     WildCardWSAtom = maps:get({ws, <<"*">>}, Hosts),
@@ -35,4 +36,3 @@ proc(Type, Path, Query, Headers, Body, Data) ->
 
     {websocket_upgrade, WSResponseBin, 
         Data2#{ws_handler=> WSHandlerAtom, ws_buf=> <<>>, temp_state=> TempState2}}.
-

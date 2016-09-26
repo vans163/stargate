@@ -1,4 +1,5 @@
 -module(http_chain).
+-compile(export_all).
 
 proc(Type, Path, Query, Headers, Body, Data) ->
     case maps:get('Upgrade', Headers, undefined) of
@@ -34,9 +35,3 @@ proc_1(Type, Path, Query, Headers, Body, Data) ->
                 RHeaders#{<<"Connection">>=> <<"close">>}, RBody),
             {http_close, RBin, Data#{temp_state=> TempState2}}
     end.
-
-
-
-
-
-    

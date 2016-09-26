@@ -16,7 +16,7 @@ init({StargateArgs, ListenSocket, Id}) ->
 handle_info({inet_async, ListenSocket, _, {ok, ClientSocket}}, S=#{params:= Params}) ->
     prim_inet:async_accept(ListenSocket, -1),
     
-    {ok, Pid} = vessel:start(Params),
+    {ok, Pid} = stargate_vessel:start(Params),
 
     inet_db:register_socket(ClientSocket, inet_tcp),
     ok = gen_tcp:controlling_process(ClientSocket, Pid),

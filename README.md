@@ -56,7 +56,7 @@ git ls-files | grep -P ".*(erl|hrl)" | xargs wc -l
    25 src/stargate_acceptor_sup.erl
    65 src/stargate_child.erl
    38 src/stargate_sup.erl
-  215 src/vessel.erl
+  215 src/stargate_vessel.erl
 
  1074 total
 
@@ -206,7 +206,7 @@ Keep-alives are sent from server automatically
 Defaults are in global.hrl  
 Max sizes protect vs DDOS  
   
-Keep in mind that encoding/decoding json + websocket frames produces alot of eheap_allocs; fragmenting the process heap beyond possible GC cleanup. Make sure to do these operations inside the vessel process itself or a temporary process.  You greatly risk crashing the entire beam VM otherwise due to it not being able to allocate anymore eheap.  
+Keep in mind that encoding/decoding json + websocket frames produces alot of eheap_allocs; fragmenting the process heap beyond possible GC cleanup. Make sure to do these operations inside the stargate_vessel process itself or a temporary process.  You greatly risk crashing the entire beam VM otherwise due to it not being able to allocate anymore eheap.  
   
 Using max_heap_size erl vm arg can somewhat remedy this problem.
 

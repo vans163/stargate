@@ -8,5 +8,5 @@ serve_static(Base, Path, Headers, S) -> stargate_static_file:serve_static(Base, 
 %{bin, Payload}
 %{text_compress, Payload}
 %{bin_compress, Payload}
-ws_send(VesselPid, P) -> VesselPid ! {ws_send, P}.
+ws_send(VesselPid, {Type, Payload}) -> VesselPid ! {ws_send, {Type, Payload}}.
 ws_message(VesselPid, Msg) -> VesselPid ! {ws_message, Msg}.

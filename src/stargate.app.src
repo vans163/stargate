@@ -1,11 +1,17 @@
 {application, stargate,
  [
-  {description, ""},
-  {vsn, "1"},
+  {mod, { stargate_app, []}},
+
+  {description, "Stargate - single page app webserver"},
+  {vsn, "0.2"},
   {registered, []},
   {applications, [
                   kernel,
                   stdlib
                  ]},
-  {env, []}
+  {env, []},
+
+  {maintainers, ["vans163"]},
+  {licenses,["GPL-3.0"]},
+  {links,[{"Github","https://github.com/vans163/stargate"}]}
  ]}.

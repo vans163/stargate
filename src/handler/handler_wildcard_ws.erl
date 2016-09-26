@@ -9,12 +9,13 @@ connect(S) ->
     Socket = maps:get(socket, S),
     {ok, {SourceAddr, _}} = transport_peername(Socket),
     ?PRINT({"WS_Unhandled: Connect", SourceAddr, self()}),
-    S
-    .
+    S.
+disconnect(S) -> 
+    ?PRINT({"WS_Unhandled: Disconnect", self()}).
 
-disconnect(S) ->
-    ?PRINT({"WS_Unhandled: Disconnect", self()})
-    .
+handle_info(S) -> 
+    ?PRINT({"WS_Unhandled: handle_info", self()}),
+    S.
 
 msg(Bin, S) ->
     ?PRINT({"WS_Unhandled:", self(), Bin}),

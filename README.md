@@ -4,10 +4,18 @@ Erlang customizable webserver
 <img src="http://i.imgur.com/8vmU7W4.jpg" width="960" height="600" />
 
 ### Status
-Work in progress.  
+Stable for single page app and simple use cases.  
+No support for full HTTP spec.  
+
+### Releases
+0.1-genserver  
+This release is the original stargate, using 1 acceptor and a gen_server model.
+
+master a.k.a. 0.2-gen_statem  
+This release is more modern featuring a mostly tickless gen_statem with 
+variable acceptor pool (default equal to scheduler count) plus OTP supervision trees.  
 
 ### Current Features
-
 - Simple support for HTTP  
 - hot-loading new paths  
 - GZIP
@@ -16,14 +24,11 @@ Work in progress.
   - Compression  
 
 ### Roadmap
-- ~~hot-loading new paths~~  
 - half-closed sockets  
-- ~~zlib (GZIP)~~
-- ~~SSL~~  
-- ~~Websockets~~  
-  - ~~Compression~~  
-- HTTP/2  
-- QUIC  
+- HTTP/2   ** Postponed until Websockets/other raw streaming is supported  
+- QUIC     ** Postponed until Websockets/other raw streaming is supported  
+
+### Benchmarks
 
 ### Thinness
 ```

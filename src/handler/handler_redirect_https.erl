@@ -1,4 +1,4 @@
--module(handler_redirect).
+-module(handler_redirect_https).
 
 -export([http/6]).
 

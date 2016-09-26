@@ -55,7 +55,7 @@ start_link(Params) -> gen_server:start(?MODULE, Params, []).
 
 init({Params, Socket}) ->
     process_flag(trap_exit, true),
-    timer:send_after(1000, stalled),
+    erlang:send_after(1000, self(), stalled),
 
     NextDc = unix_time() + ?MAX_TCP_TIMEOUT_SEC,
     {ok, #{params=> Params, session_state=> #{}, nextDc=> NextDc}}.
@@ -139,7 +139,7 @@ handle_http(Headers=#{'Upgrade':= <<"websocket">>}, Body, S=#{
     S__ = apply(WSHandlerAtom, connect, [S_]),
 
     ok = transport_setopts(Socket, [{active, once}, {packet, raw}, binary]),
-    timer:send_after(?WS_PING_INTERVAL, ws_ping),
+    erlang:send_after(?WS_PING_INTERVAL, self(), ws_ping),
     S__#{ws_handler=> WSHandlerAtom, ws_buf=> <<>>}
     ;
 
@@ -238,14 +238,14 @@ when T == tcp; T == ssl->
 
 
 handle_info(ws_ping, S=#{socket:= Socket}) ->
-    timer:send_after(?WS_PING_INTERVAL, ws_ping),
+    erlang:send_after(?WS_PING_INTERVAL, self(), ws_ping),
     p_send(Socket, proto_ws:encode_frame(ping), S);
 %%%
 
 
 %%%timeout check
 handle_info(stalled, S=#{nextDc:= NextDc}) ->
-    timer:send_after(1000, stalled),
+    erlang:send_after(1000, self(), stalled),
     Now = unix_time(),
     if
         Now > NextDc ->

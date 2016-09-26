@@ -11,7 +11,6 @@ get_ws_handler(Host, Path, Hosts) ->
 
 proc(Type, Path, Query, Headers, Body, Data) ->
     Socket = maps:get(socket, Data),
-    TempState = maps:get(temp_state, Data),
     Params = maps:get(params, Data),
     Hosts = maps:get(hosts, Params),
 
@@ -31,8 +30,9 @@ proc(Type, Path, Query, Headers, Body, Data) ->
             { Data#{zinflate=> ZInflate, zdeflate=> ZDeflate}, Bin }
     end,
 
-    TempState2 = apply(WSHandlerAtom, connect, [TempState]),
-
+    TempState = maps:get(temp_state, Data2),
+    TempState2 = TempState#{socket=> Socket},
+    TempState3 = apply(WSHandlerAtom, connect, [TempState2]),
 
     {websocket_upgrade, WSResponseBin, 
-        Data2#{ws_handler=> WSHandlerAtom, ws_buf=> <<>>, temp_state=> TempState2}}.
+        Data2#{ws_handler=> WSHandlerAtom, ws_buf=> <<>>, temp_state=> TempState3}}.

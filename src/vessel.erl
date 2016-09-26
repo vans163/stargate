@@ -99,7 +99,7 @@ handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVe
 
                 ok ->
                     ok = ?TRANSPORT_SETOPTS(Socket, [{active, once}, {packet, raw}, binary]),
-                    erlang:send_after(?WS_PING_INTERVAL, ws_ping),
+                    erlang:send_after(?WS_PING_INTERVAL, self(), ws_ping),
 
                     {next_state, websocket, D2, ?MAX_TCP_TIMEOUT}
             end

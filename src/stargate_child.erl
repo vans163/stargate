@@ -9,7 +9,7 @@
          terminate/2,
          code_change/3]).
 
--include("../global.hrl").
+-include("global.hrl").
 
 
 start_link(CleanArgs) -> gen_server:start_link(?MODULE, CleanArgs, []).

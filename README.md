@@ -12,7 +12,8 @@ No planned support for full HTTP spec.
 This release is the original stargate, using 1 acceptor and a gen_server model.
 
 master a.k.a. 0.2-gen_statem  
-R19.1+ only. This release is more modern featuring a mostly tickless gen_statem with variable acceptor pool (default equal to scheduler count) 
+R19.1+ only.  
+This release is more modern featuring a mostly tickless gen_statem with variable acceptor pool (default equal to scheduler count) 
 plus OTP supervision trees.  
 
 ### Current Features
@@ -39,14 +40,14 @@ git ls-files | grep -P ".*(erl|hrl)" | xargs wc -l
    12 src/handler/handler_wildcard.erl
    22 src/handler/handler_wildcard_ws.erl
 
-   36 src/logic_chain/http_chain.erl
-   37 src/logic_chain/ws_chain.erl
-
    11 src/plugin/stargate_plugin.erl
    82 src/plugin/stargate_static_file.erl
 
   161 src/proto/proto_http.erl
   165 src/proto/proto_ws.erl
+
+   36 src/logic_chain/http_chain.erl
+   37 src/logic_chain/ws_chain.erl
 
    48 src/global.hrl
 
@@ -78,13 +79,14 @@ stargate:launch_demo().
 Live configuration example.   
 ```erlang
 
+{ok, _} = application:ensure_all_started(stargate),
 
 {ok, HttpPid} = stargate:warp_in(
   #{
       port=> 80, 
       ip=> {0,0,0,0},
       hosts=> #{
-          {http, <<"hologram_cache.templar-archive.aiur">>}=> {hologram_cache, #{}},
+          {http, <<"public.templar-archive.aiur">>}=> {templar_archive_public, #{}},
           {http, <<"*">>}=> {handler_redirect_https, #{}},
       }
   }
@@ -96,10 +98,10 @@ WSCompress = #{window_bits=> 15, level=>best_speed, mem_level=>8, strategy=>defa
       port=> 443,
       ip=> {0,0,0,0},
       ssl_opts=> [
-        {certfile, "./priv/lets-encrypt-cert.pem"},
-        {keyfile, "./priv/lets-encrypt-key.pem"},
+          {certfile, "./priv/lets-encrypt-cert.pem"},
+          {keyfile, "./priv/lets-encrypt-key.pem"},
 
-        {cacertfile, "./priv/lets-encrypt-x3-cross-signed.pem"}
+          {cacertfile, "./priv/lets-encrypt-x3-cross-signed.pem"}
       ],
       hosts=> #{
           {http, <<"templar-archive.aiur">>}=> {templar_archive, #{}},
@@ -107,24 +109,25 @@ WSCompress = #{window_bits=> 15, level=>best_speed, mem_level=>8, strategy=>defa
 
           {http, <<"research.templar-archive.aiur">>}=> {templar_archive_research, #{}},
 
-          {ws, {<<"ws.templar-archive.aiur">>, <<"/emitter">>}}=> {ws_emitter, #{compress=> WSCompress}},
-
-          {ws, {<<"ws.templar-archive.aiur">>, <<"/transmission">>}}=> {ws_transmission, #{compress=> WSCompress}}
+          {ws, {<<"ws.templar-archive.aiur">>, <<"/emitter">>}}=> 
+              {ws_emitter, #{compress=> WSCompress}},
+          {ws, {<<"ws.templar-archive.aiur">>, <<"/transmission">>}}=> 
+              {ws_transmission, #{compress=> WSCompress}}
       }
   }
-)
+).
 
--module(hologram_cache).
+-module(templar_archive_public).
 -compile(export_all).
 
-http('GET', Path, Query, HttpHeaders, Body, S) ->
-    stargate_plugin:serve_static(<<"./priv/holograms/">>, Path, Headers, S).
+http('GET', Path, Query, Headers, Body, S) ->
+    stargate_plugin:serve_static(<<"./priv/public/">>, Path, Headers, S).
 
 
 -module(templar_archive).
 -compile(export_all).
 
-http('GET', <<"/">>, Query, HttpHeaders, Body, S) ->
+http('GET', <<"/">>, Query, Headers, Body, S) ->
     Socket = maps:get(socket, S),
     {ok, {SourceAddr, _}} = ?TRANSPORT_PEERNAME(Socket),
 
@@ -140,7 +143,7 @@ http('GET', <<"/">>, Query, HttpHeaders, Body, S) ->
 http('GET', Path, Query, #{'Cookie':= <<"power_overwhelming">>}, Body, S) ->
     stargate_plugin:serve_static(<<"./priv/research/">>, Path, Headers, S);
 
-http('GET', Path, Query, HttpHeaders, Body, S) ->
+http('GET', Path, Query, Headers, Body, S) ->
     Resp =  <<"Access Denied">>,
     {200, #{}, Resp, S}.
 
@@ -178,11 +181,11 @@ msg(_, S) -> S.
 
 stargate:update_params(HttpsPid, #{
   hosts=> #{ 
-    {http, <<"new_quarters.templar-archive.aiur">>}=> {new_quarters, #{}}
+      {http, <<"new_quarters.templar-archive.aiur">>}=> {new_quarters, #{}}
   }, 
   ssl_opts=> [
-    {certfile, "./priv/new_cert.pem"},
-    {keyfile, "./priv/new_key.pem"}
+      {certfile, "./priv/new_cert.pem"},
+      {keyfile, "./priv/new_key.pem"}
   ]
 })
 ```
@@ -192,7 +195,7 @@ stargate:update_params(HttpsPid, #{
 Headers = #{'Accept-Encoding'=> <<"gzip">>, <<"ETag">>=> <<"12345">>},
 S = old_state,
 {ReplyCode, ReplyHeaders, ReplyBody, NewState} = 
-  stargate_plugin:serve_static(<<"./priv/website/">>, <<"index.html">>, Headers, S),
+    stargate_plugin:serve_static(<<"./priv/website/">>, <<"index.html">>, Headers, S),
 
 ReplyCode = 200,
 ReplyHeaders = #{<<"Content-Encoding">>=> <<"gzip">>, <<"ETag">>=> <<"54321">>},
@@ -203,7 +206,7 @@ Keep-alives are sent from server automatically
 Defaults are in global.hrl  
 Max sizes protect vs DDOS  
   
-Keep inmind that encoding/decoding json + websocket frames produces alot of eheap_allocs; fragmenting the process heap beyond possible GC cleanup. Make sure to do these operations inside the vessel process itself, or a temporary process.  You greatly risk crashing the entire beam VM otherwise due to it not being able to allocate anymore eheap.  
+Keep in mind that encoding/decoding json + websocket frames produces alot of eheap_allocs; fragmenting the process heap beyond possible GC cleanup. Make sure to do these operations inside the vessel process itself or a temporary process.  You greatly risk crashing the entire beam VM otherwise due to it not being able to allocate anymore eheap.  
   
 Using max_heap_size erl vm arg can somewhat remedy this problem.
 
@@ -237,7 +240,7 @@ handle_info(Msg, S) -> S.
 
 ```javascript
 
-//Chrome javascript WSS example:
-var Socket = new WebSocket("wss://localhost:8443");
-Socket.send("Hello Mike");
+//Chrome javascript WS example:
+var socket = new WebSocket("ws://127.0.0.1:8000");
+socket.send("Hello Mike");
 ```

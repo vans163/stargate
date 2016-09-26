@@ -33,7 +33,7 @@ handle_info({inet_async, _ListenSocket, _, Error}, S) ->
 handle_info(_Message, S) -> {noreply, S}.
 
 terminate(_Reason, S) -> 
-    ?PRINT({"Terminated", _Reason, S}).
+    ?PRINT({"terminated", _Reason, S}).
 
 
 handle_cast(_Message, S) -> {noreply, S}.

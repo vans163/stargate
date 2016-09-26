@@ -34,8 +34,8 @@ launch_demo() ->
         port=> 8000,
         ip=> {0,0,0,0},
         hosts=> #{
-            {http, <<"*">>}=> {?HANDLER_WILDCARD, #{}},
-            {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, #{}}
+            {http, "*"}=> {?HANDLER_WILDCARD, #{}},
+            {ws, "*"}=> {?HANDLER_WILDCARD_WS, #{}}
         }
     },
 
@@ -49,8 +49,8 @@ launch_demo() ->
             {keyfile, "./priv/key.pem"}
         ],
         hosts=> #{
-            {http, <<"*">>}=> {?HANDLER_WILDCARD, #{}},
-            {ws, <<"*">>}=> {?HANDLER_WILDCARD_WS, #{compress=>WSCompress}}
+            {http, "*"}=> {?HANDLER_WILDCARD, #{}},
+            {ws, "*"}=> {?HANDLER_WILDCARD_WS, #{compress=>WSCompress}}
         }
     },
 
@@ -61,17 +61,35 @@ launch_demo() ->
 
 ensure_wildcard(Hosts) ->
     Hosts2 = ensure_wildcard({http, <<"*">>}, ?HANDLER_WILDCARD, Hosts),
-    Hosts3 = ensure_wildcard({ws, <<"*">>}, ?HANDLER_WILDCARD_WS, Hosts2).
+    Hosts3 = ensure_wildcard({ws, <<"*">>}, ?HANDLER_WILDCARD_WS, Hosts2),
+    Hosts3.
 ensure_wildcard(Key, Handler, Hosts) ->
     case maps:get(Key, Hosts, undefined) of
         undefined -> maps:put(Key, {Handler, #{}}, Hosts);
         _ -> Hosts
     end.
 
+host_strings_to_binary(Hosts) ->
+    lists:foldr(fun(K, NewHosts) -> 
+            V = maps:get(K, Hosts),
+            K2 = case K of
+                {T, {Bin1, Bin2}} ->
+                    KBin1 = unicode:characters_to_binary(Bin1),
+                    KBin2 = unicode:characters_to_binary(Bin2),
+                    {T, {KBin1, KBin2}};
+
+                {T, Bin} ->
+                    KBin = unicode:characters_to_binary(Bin),
+                    {T, KBin}
+            end,
+            maps:put(K2, V, NewHosts)
+        end, 
+        #{}, maps:keys(Hosts)
+    ).
+
 fix_params(Params) ->
-    Port = maps:get(port, Params),
-    Ip = maps:get(ip, Params),
-    Hosts = maps:get(hosts, Params),
+    _Hosts = maps:get(hosts, Params),
+    Hosts = host_strings_to_binary(_Hosts),
 
     Hosts2 = ensure_wildcard(Hosts),
     Params2 = maps:put(hosts, Hosts2, Params),

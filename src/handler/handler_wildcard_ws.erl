@@ -2,6 +2,7 @@
 
 -export([connect/1, disconnect/1]).
 -export([msg/2]).
+-export([handle_info/2]).
 
 -include("../global.hrl").
 
@@ -10,10 +11,10 @@ connect(S) ->
     {ok, {SourceAddr, _}} = ?TRANSPORT_PEERNAME(Socket),
     ?PRINT({"WS_Unhandled: Connect", SourceAddr, self()}),
     S.
-disconnect(S) -> 
+disconnect(_S) -> 
     ?PRINT({"WS_Unhandled: Disconnect", self()}).
 
-handle_info(S) -> 
+handle_info(_Msg, S) -> 
     ?PRINT({"WS_Unhandled: handle_info", self()}),
     S.
 

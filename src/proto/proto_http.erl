@@ -52,10 +52,10 @@ recv_headers_1(Socket, Map, Size) ->
     end.
 
 
-recv_body(Socket, undefined) -> <<>>;
+recv_body(_Socket, undefined) -> <<>>;
 recv_body(Socket, ContLen) when is_binary(ContLen) -> 
     recv_body(Socket, binary_to_integer(ContLen));
-recv_body(Socket, ContLen) when ContLen > ?HTTP_MAX_BODY_SIZE -> throw(max_body_size_exceeded);
+recv_body(_Socket, ContLen) when ContLen > ?HTTP_MAX_BODY_SIZE -> throw(max_body_size_exceeded);
 recv_body(Socket, ContLen) ->
     ok = ?TRANSPORT_SETOPTS(Socket, [{active, false}, {packet, raw}, binary]),
     {ok, Body} = ?TRANSPORT_RECV(Socket, ContLen, ?TIMEOUT),
@@ -69,11 +69,11 @@ response(Code, B, C) when is_integer(Code) -> response(integer_to_binary(Code), 
 response(Code, Headers, Body) ->
     Headers2 = case maps:get(<<"Connection">>, Headers, undefined) of
         undefined -> maps:put(<<"Connection">>, <<"close">>, Headers);
-        Exists -> Exists
+        _ -> Headers
     end,
     
     BodySize = integer_to_binary(byte_size(Body)),
-    HeadersFinal = maps:put(<<"Content-Length">>, BodySize, Headers),
+    HeadersFinal = maps:put(<<"Content-Length">>, BodySize, Headers2),
 
     Bin = <<"HTTP/1.1 ", Code/binary, " ", (response_code(Code))/binary, "\r\n">>,
     HeaderBin = maps:fold(fun(K,V,Acc) ->

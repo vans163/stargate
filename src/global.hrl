@@ -17,6 +17,7 @@
 -define(PRINT(Var), io:format("~p:~p - ~p~n", [?MODULE, ?LINE, Var])).
 -endif.
 
+
 -define(TRANSPORT_SETOPTS(Socket, Opts), 
     (fun ({sslsocket, _, _}) -> ssl:setopts(Socket, Opts);
          (_) -> inet:setopts(Socket, Opts)

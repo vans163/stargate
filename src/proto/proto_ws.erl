@@ -88,7 +88,7 @@ handshake(WSKey, WSExtensions, WSOptions) ->
 
 xor_payload(Payload, Mask) -> xor_payload(Payload, Mask, <<>>).
 
-xor_payload(<<>>, Mask, Acc) -> Acc;
+xor_payload(<<>>, _Mask, Acc) -> Acc;
 xor_payload(<<Chunk:32, Rest/binary>>, M= <<Mask:32>>, Acc) ->
     XorChunk = Chunk bxor Mask,
     xor_payload(Rest, M, <<Acc/binary, XorChunk:32>>)
@@ -108,7 +108,7 @@ xor_payload(<<Chunk:8, Rest/binary>>, M= <<Mask:8, _/binary>>, Acc) ->
 
 
 decode_frame(<<>>) -> {incomplete, <<>>};
-decode_frame(Chunk= <<Fin:1, RSV1:1, RSV2:1, RSV3:1, 
+decode_frame(Chunk= <<_Fin:1, RSV1:1, _RSV2:1, _RSV3:1, 
         Opcode:4, Rest/binary>>) ->
     
     %unimplemented. Only firefox splits frames after 32kb

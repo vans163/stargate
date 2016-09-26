@@ -86,8 +86,8 @@ Live configuration example.
       port=> 80, 
       ip=> {0,0,0,0},
       hosts=> #{
-          {http, <<"public.templar-archive.aiur">>}=> {templar_archive_public, #{}},
-          {http, <<"*">>}=> {handler_redirect_https, #{}},
+          {http, "public.templar-archive.aiur"}=> {templar_archive_public, #{}},
+          {http, "*"}=> {handler_redirect_https, #{}},
       }
   }
 ),
@@ -104,14 +104,14 @@ WSCompress = #{window_bits=> 15, level=>best_speed, mem_level=>8, strategy=>defa
           {cacertfile, "./priv/lets-encrypt-x3-cross-signed.pem"}
       ],
       hosts=> #{
-          {http, <<"templar-archive.aiur">>}=> {templar_archive, #{}},
-          {http, <<"www.templar-archive.aiur">>}=> {templar_archive, #{}},
+          {http, "templar-archive.aiur"}=> {templar_archive, #{}},
+          {http, "www.templar-archive.aiur"}=> {templar_archive, #{}},
 
-          {http, <<"research.templar-archive.aiur">>}=> {templar_archive_research, #{}},
+          {http, "research.templar-archive.aiur"}=> {templar_archive_research, #{}},
 
-          {ws, {<<"ws.templar-archive.aiur">>, <<"/emitter">>}}=> 
+          {ws, {"ws.templar-archive.aiur", "/emitter"}}=> 
               {ws_emitter, #{compress=> WSCompress}},
-          {ws, {<<"ws.templar-archive.aiur">>, <<"/transmission">>}}=> 
+          {ws, {"ws.templar-archive.aiur", "/transmission"}}=> 
               {ws_transmission, #{compress=> WSCompress}}
       }
   }

@@ -4,7 +4,7 @@
 
 -include("../global.hrl").
 
-http(Type, Path, Query, HttpHeaders, Body, SessState) ->
+http(_Type, Path, _Query, HttpHeaders, _Body, SessState) ->
     Host = maps:get('Host', HttpHeaders, <<"">>),
     SSLPath = <<"https://", Host/binary, Path/binary>>,
 

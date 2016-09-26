@@ -26,10 +26,10 @@ parse_extensions(WSExtensions) ->
     .
 
 useless_hash(WSKey) ->
-    UselessHash = crypto:hash(sha, 
-        <<WSKey/binary, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11">>),
-    UselessHashBase64 = base64:encode(UselessHash)
-    .
+    base64:encode(
+        crypto:hash(sha, 
+            [WSKey, <<"258EAFA5-E914-47DA-95CA-C5AB0DC85B11">>])
+    ).
 
 inflateInit() ->
     Z = zlib:open(),
@@ -148,16 +148,16 @@ decode_frame(Chunk= <<Fin:1, RSV1:1, RSV2:1, RSV3:1,
 
 
 encode_frame(ping) -> encode_frame(<<>>, ping);
-encode_frame(close) -> encode_frame(<<>>, close);
-encode_frame(Bin) -> encode_frame(Bin, text).
+encode_frame(close) -> encode_frame(<<>>, close).
 
-encode_frame(Bin, T) when is_list(Bin) -> encode_frame(list_to_binary(Bin), T);
+encode_frame(Bin, T) when is_list(Bin) -> 
+    encode_frame(unicode:characters_to_binary(Bin), T);
 encode_frame(Bin, text) -> encode_frame(Bin, 0, 1);
 encode_frame(Bin, bin) -> encode_frame(Bin, 0, 2);
 encode_frame(Bin, close) -> encode_frame(Bin, 0, 8);
 encode_frame(Bin, ping) -> encode_frame(Bin, 0, 9);
 
-encode_frame(Bin, compress) -> encode_frame(Bin, 1, 1);
+encode_frame(Bin, text_compress) -> encode_frame(Bin, 1, 1);
 encode_frame(Bin, bin_compress) -> encode_frame(Bin, 1, 2).
 
 

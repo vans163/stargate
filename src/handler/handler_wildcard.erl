@@ -2,7 +2,7 @@
 
 -export([http/6]).
 
--include("global.hrl").
+-include("../global.hrl").
 
 http(Type, Path, Query, HttpHeaders, Body, SessState) ->
     Socket = maps:get(socket, SessState),

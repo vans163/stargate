@@ -3,7 +3,7 @@
 -export([connect/1, disconnect/1]).
 -export([msg/2]).
 
--include("global.hrl").
+-include("../global.hrl").
 
 connect(S) ->
     Socket = maps:get(socket, S),

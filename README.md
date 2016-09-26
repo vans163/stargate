@@ -36,9 +36,11 @@ plus OTP supervision trees.
 ```
 git ls-files | grep -P ".*(erl|hrl)" | xargs wc -l
 
+    8 src/app/stargate_app.erl
+
    11 src/handler/handler_redirect_https.erl
    12 src/handler/handler_wildcard.erl
-   22 src/handler/handler_wildcard_ws.erl
+   23 src/handler/handler_wildcard_ws.erl
 
    11 src/plugin/stargate_plugin.erl
    82 src/plugin/stargate_static_file.erl
@@ -49,20 +51,20 @@ git ls-files | grep -P ".*(erl|hrl)" | xargs wc -l
    36 src/logic_chain/http_chain.erl
    37 src/logic_chain/ws_chain.erl
 
-   48 src/global.hrl
+   49 src/global.hrl
 
-   98 src/stargate.erl
+  113 src/stargate.erl
    40 src/stargate_acceptor.erl
    25 src/stargate_acceptor_sup.erl
    65 src/stargate_child.erl
-   38 src/stargate_sup.erl
+   37 src/stargate_sup.erl
   215 src/stargate_vessel.erl
 
- 1074 total
+ 1090 total
 
 ```
 
-Stargate is currently 1074 lines of code.  
+Stargate is currently 1090 lines of code.  
  
 
 ### Example

@@ -33,6 +33,8 @@ plus OTP supervision trees.
 ### Benchmarks
 
 ### Thinness
+<details>
+<summary>Stargate is currently 1090 lines of code</summary>  
 ```
 git ls-files | grep -P ".*(erl|hrl)" | xargs wc -l
 
@@ -63,8 +65,7 @@ git ls-files | grep -P ".*(erl|hrl)" | xargs wc -l
  1090 total
 
 ```
-
-Stargate is currently 1090 lines of code.  
+</details> 
  
 
 ### Example
@@ -77,8 +78,9 @@ Basic demo.
 
 stargate:launch_demo().
 ```
-
-Live configuration example.   
+<details>
+<summary>Live configuration example</summary>
+   
 ```erlang
 
 {ok, _} = application:ensure_all_started(stargate),
@@ -174,9 +176,10 @@ msg(<<"{chat: 'hello'}">>, S) ->
 msg(_, S) -> S.
 
 ```
-
-
-### Example hotloading config
+</details>  
+  
+<details>
+<summary>Hotloading example</summary>
 
 ```erlang
 %Pid gotten from return value of warp_in/[1,2].
@@ -191,8 +194,11 @@ stargate:update_params(HttpsPid, #{
   ]
 })
 ```
+</details>  
+  
+<details>
+<summary>Gzip example</summary>
 
-### Example GZip
 ```erlang
 Headers = #{'Accept-Encoding'=> <<"gzip">>, <<"ETag">>=> <<"12345">>},
 S = old_state,
@@ -202,8 +208,11 @@ S = old_state,
 ReplyCode = 200,
 ReplyHeaders = #{<<"Content-Encoding">>=> <<"gzip">>, <<"ETag">>=> <<"54321">>},
 ```
+</details>
 
-### Websockets
+<details>
+<summary>Websockets example</summary>  
+  
 Keep-alives are sent from server automatically  
 Defaults are in global.hrl  
 Max sizes protect vs DDOS  
@@ -246,3 +255,4 @@ handle_info(Msg, S) -> S.
 var socket = new WebSocket("ws://127.0.0.1:8000");
 socket.send("Hello Mike");
 ```
+</details>

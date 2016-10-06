@@ -2,6 +2,7 @@
 -compile(export_all).
 
 serve_static(Base, Path, Headers, S) -> stargate_static_file:serve_static(Base, Path, Headers, S).
+serve_static_bin(Bin, Headers, S) -> stargate_static_file:serve_static_bin(Bin, Headers, S).
 
 
 %{text, Payload}

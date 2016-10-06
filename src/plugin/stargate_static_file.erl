@@ -63,6 +63,16 @@ serve_static(Base, DirtyPath, Headers, S) ->
     end
     .
 
+serve_static_bin(Bin, Headers, S) ->
+    Etag = maps:get('If-None-Match', Headers, undefined),
+
+    CanGZip = can_accept_gzip(Headers),
+    {Code, HeadersReply, BinReply} = case CanGZip of
+        yes -> serve_static_gzip(Bin, Etag);
+        _ -> serve_static_no_gzip(Bin, Etag)
+    end,
+    {Code, HeadersReply, BinReply, S}.
+
 serve_static_no_gzip(Bin, Etag) ->
     Crc32 = erlang:integer_to_binary(erlang:crc32(Bin)),
     if

@@ -2,7 +2,7 @@
 -compile(export_all).
 
 -define(RE_ATOM, " :(.*?) ").
--define(RE_DEFAULT_REIKSGUARD, "<%=(.*?)%>").
+-define(RE_DEFAULT_REIKSGUARD, "<%= (.*?) %>").
 
 %TODO: Open pull request to OTP for this
 binary_replace(Binary, {StartPos, Len}, Replacement) ->
@@ -19,7 +19,7 @@ sub(Reiksguard, KeyValue) ->
             sub_1(Subs, Reiksguard, KeyValue)
     end.
 
-sub_1([], Bin, KeyValue) -> Bin;
+sub_1([], Bin, KeyValue) -> sub_2(Bin, binary:last(Bin));
 sub_1([ [{RS, RE}, {TS, TE}] | T], Bin, KeyValue) ->
     AtomBin = binary:part(Bin, TS, TE),
     Atom = binary_to_atom(AtomBin, latin1),
@@ -34,6 +34,9 @@ sub_1([ [{RS, RE}, {TS, TE}] | T], Bin, KeyValue) ->
             BinSubbed = binary_replace(Bin, {RS, RE}, ValueBin),
             sub_1(T, BinSubbed, KeyValue)
     end.
+
+sub_2(Bin, 46) -> Bin;
+sub_2(Bin, _) -> <<Bin/binary, ".">>.
 
 read_sub_eval_replace(REReiksguard, Page, KeyValue) ->
     case re:run(Page, REReiksguard, [dotall, {capture, all, index}]) of
@@ -79,6 +82,14 @@ test() ->
         <span class='hov'>Feature</span>
       </a>
     </li>">>,
+    
+    KeyValue = #{category=> <<"index">>},
+    transform(Html, KeyValue).
+
+test2() ->
+    Html = <<"
+    <li <%= :category %> ></li>
+    ">>,
     
     KeyValue = #{category=> <<"index">>},
     transform(Html, KeyValue).

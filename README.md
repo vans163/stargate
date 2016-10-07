@@ -263,7 +263,7 @@ socket.send("Hello Mike");
 <details>
 <summary>Templating</summary>  
   
-Basic templating system uses the default regex of "<%=(.*?)%>" to pull out captures from a binary.
+Basic templating system uses the default regex of "<%= (.*?) %>" to pull out captures from a binary.
 
 For example writing html like:
 
@@ -283,9 +283,9 @@ KeyValue = #{category=> <<"index">>},
 TransformedBin = stargate_plugin:template(HtmlBin, KeyValue).
 ```
 
-The return is the evaluation of the expressions between the match (default <%= %>) with the :terms substituted.
+The return is the evaluation of the expressions between the match with the :terms substituted.
 
-You may pass your own regex to match against using stargate_plugin:template/3 :
+You may pass your own regex to match against using stargate_plugin:template/3:
 
 ```erlang
 stargate_plugin:template("{{(.*?)}}", HtmlBin, KeyValue).

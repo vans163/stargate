@@ -22,6 +22,8 @@ plus OTP supervision trees.
 - GZIP
 - SSL  
 - Simple plugins
+  - Templates
+  - Static File Server
 - Websockets  
   - Compression  
 
@@ -256,3 +258,36 @@ var socket = new WebSocket("ws://127.0.0.1:8000");
 socket.send("Hello Mike");
 ```
 </details>
+
+
+<details>
+<summary>Templating</summary>  
+  
+Basic templating system uses the default regex of "<%=(.*?)%>" to pull out captures from a binary.
+
+For example writing html like:
+
+```html
+<li class='my-nav-list <%= case :category of <<\"index\">>-> 'my-nav-list-active'; _-> '' end. %>'>
+  <a href='/' class='link'>
+    <span class='act'>Home</span>
+    <span class='hov'>Home</span>
+  </a>
+</li>
+```
+
+You can now do:
+
+```erlang
+KeyValue = #{category=> <<"index">>},
+TransformedBin = stargate_plugin:template(HtmlBin, KeyValue).
+```
+
+The return is the evaluation of the expressions between the match (default <%= %>) with the :terms substituted.
+
+You may pass your own regex to match against using stargate_plugin:template/3 :
+
+```erlang
+stargate_plugin:template("{{(.*?)}}", HtmlBin, KeyValue).
+```
+  </details>

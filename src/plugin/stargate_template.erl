@@ -2,7 +2,7 @@
 -compile(export_all).
 
 -define(RE_ATOM, " :(.*?) ").
--define(RE_DEFAULT_REIKSGUARD, "<%= (.*?) %>").
+-define(RE_DEFAULT_REIKSGUARD, "<%=(.*?)%>").
 
 %TODO: Open pull request to OTP for this
 binary_replace(Binary, {StartPos, Len}, Replacement) ->
@@ -19,7 +19,9 @@ sub(Reiksguard, KeyValue) ->
             sub_1(Subs, Reiksguard, KeyValue)
     end.
 
-sub_1([], Bin, KeyValue) -> sub_2(Bin, binary:last(Bin));
+sub_1([], Bin, KeyValue) -> 
+    Bin2 = unicode:characters_to_binary(string:strip(unicode:characters_to_list(Bin))),
+    sub_2(Bin2, binary:last(Bin2));
 sub_1([ [{RS, RE}, {TS, TE}] | T], Bin, KeyValue) ->
     AtomBin = binary:part(Bin, TS, TE),
     Atom = binary_to_atom(AtomBin, latin1),

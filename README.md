@@ -263,7 +263,7 @@ socket.send("Hello Mike");
 <details>
 <summary>Templating</summary>  
   
-Basic templating system uses the default regex of "<%= (.*?) %>" to pull out captures from a binary.
+Basic templating system uses the default regex of "<%=(.*?)%>" to pull out captures from a binary.
 
 For example writing html like:
 

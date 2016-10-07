@@ -4,6 +4,8 @@
 serve_static(Base, Path, Headers, S) -> stargate_static_file:serve_static(Base, Path, Headers, S).
 serve_static_bin(Bin, Headers, S) -> stargate_static_file:serve_static_bin(Bin, Headers, S).
 
+template(Page, KeyValue) -> stargate_template:transform(Page, KeyValue).
+template(RE, Page, KeyValue) -> stargate_template:transform(RE, Page, KeyValue).
 
 %{text, Payload}
 %{bin, Payload}

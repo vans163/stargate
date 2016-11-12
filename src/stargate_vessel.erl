@@ -178,9 +178,14 @@ handle_event(info, {ws_message, Msg}, websocket, D=#{ws_handler:= WSHandler}) ->
     catch
         E:R -> ?PRINT({"info apply failed", Msg, E, R})
     end,
-    {next_state, websocket, D}.
+    {next_state, websocket, D};
 
-
+%Unhandled events forward to ws_handler or crash
+handle_event(info, Msg, websocket, D=#{ws_handler:= WSHandler}) ->
+    %?PRINT({"Unhandled msg", Msg, S, D}),
+    TempState = maps:get(temp_state, D),
+    D2 = apply(WSHandler, handle_info, [Msg, TempState]),
+    {next_state, websocket, D2}.
 
 %handle_event(info, Msg, S, D) ->
     %?PRINT({"Unhandled msg", Msg, S, D}),

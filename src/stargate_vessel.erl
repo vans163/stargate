@@ -184,8 +184,8 @@ handle_event(info, {ws_message, Msg}, websocket, D=#{ws_handler:= WSHandler}) ->
 handle_event(info, Msg, websocket, D=#{ws_handler:= WSHandler}) ->
     %?PRINT({"Unhandled msg", Msg, S, D}),
     TempState = maps:get(temp_state, D),
-    D2 = apply(WSHandler, handle_info, [Msg, TempState]),
-    {next_state, websocket, D2}.
+    TempState2 = apply(WSHandler, handle_info, [Msg, TempState]),
+    {next_state, websocket, D#{temp_state=>TempState2}}.
 
 %handle_event(info, Msg, S, D) ->
     %?PRINT({"Unhandled msg", Msg, S, D}),

@@ -102,7 +102,12 @@ handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVe
                     erlang:send_after(?WS_PING_INTERVAL, self(), ws_ping),
 
                     {next_state, websocket, D2, ?MAX_TCP_TIMEOUT}
-            end
+            end;
+
+        {websocket_reject, RespBin, D2} ->
+            ?TRANSPORT_SEND(Socket, RespBin),
+            ?TRANSPORT_CLOSE(Socket),
+            {stop, {shutdown, tcp_closed}, D2}
     end;
 
 

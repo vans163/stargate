@@ -157,7 +157,7 @@ http('GET', Path, Query, Headers, Body, S) ->
 -module(ws_emitter).
 -compile(export_all).
 
-connect(S) -> S.
+connect(_Headers, S) -> S.
 disconnect(S) -> ok.
 
 
@@ -228,13 +228,15 @@ Using max_heap_size erl vm arg can somewhat remedy this problem.
 ```erlang
 -module(ws_transmission).
 
--export([connect/1, disconnect/1]).
+-export([connect/2, disconnect/1]).
 -export([msg/2, handle_info/2]).
 
-connect(S) -> 
+connect(Headers, S) -> 
     Socket = maps:get(socket, S),
     Pid = self(),
   
+    Cookies = maps:get('Cookie', Headers, undefined),
+
     stargate_plugin:ws_send(Pid, {text, "hello joe"}),
     stargate_plugin:ws_send(Pid, {text, <<"hello joe">>}),
     stargate_plugin:ws_send(Pid, {bin, <<1,2,3,4>>}),
@@ -244,7 +246,10 @@ connect(S) ->
 
     stargate_plugin:ws_send(Pid, close),
 
-    S.
+    case Cookies of
+      <<"token=mysecret">> -> S;
+      _ -> reject
+    end.
 
 disconnect(S) -> ok.
 msg(Bin, S) -> S.

@@ -18,8 +18,10 @@ ws_message(VesselPid, Msg) -> VesselPid ! {ws_message, Msg}.
 cookie_parse(CookiesBin) -> 
     CookiesSplit = binary:split(CookiesBin, <<"; ">>, [global]),
     lists:foldl(fun(CookieBin, Acc) ->
-            [K, V] = binary:split(CookieBin, <<"=">>),
-            Acc#{K=> V}
+            case binary:split(CookieBin, <<"=">>) of
+                [K, V] -> Acc#{K=> V};
+                _ -> Acc
+            end
         end, #{}, CookiesSplit
     ).
 

@@ -266,6 +266,12 @@ socket.send("Hello Mike");
 ```
 </details>
 
+<details>
+<summary>Cookie Parser example</summary>  
+```erlang
+Map = stargate_plugin:cookie_parse(<<"token=mysecret; other_stuff=some_other_thing">>)
+```
+</details>
 
 <details>
 <summary>Templating example</summary>  
@@ -297,4 +303,4 @@ You may pass your own regex to match against using stargate_plugin:template/3:
 ```erlang
 stargate_plugin:template("{{(.*?)}}", HtmlBin, KeyValue).
 ```
-  </details>
+</details>

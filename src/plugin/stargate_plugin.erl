@@ -13,3 +13,14 @@ template(RE, Page, KeyValue) -> stargate_template:transform(RE, Page, KeyValue).
 %{bin_compress, Payload}
 ws_send(VesselPid, {Type, Payload}) -> VesselPid ! {ws_send, {Type, Payload}}.
 ws_message(VesselPid, Msg) -> VesselPid ! {ws_message, Msg}.
+
+%TODO: Does this conform/work in all cases?
+cookie_parse(CookiesBin) -> 
+    CookiesSplit = binary:split(CookiesBin, <<"; ">>, [global]),
+    lists:foldl(fun(CookieBin, Acc) ->
+            [K, V] = binary:split(CookieBin, <<"=">>),
+            Acc#{K=> V}
+        end, #{}, CookiesSplit
+    ).
+
+

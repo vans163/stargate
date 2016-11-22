@@ -71,8 +71,8 @@ git ls-files | grep -P ".*(erl|hrl)" | xargs wc -l
  
 
 ### Example
-
-Basic demo.  
+<details>
+<summary>Basic example</summary>
 ```erlang
 
 %Listen on all interfaces for any non-ssl request /w websocket on port 8000
@@ -80,6 +80,8 @@ Basic demo.
 
 stargate:launch_demo().
 ```
+</details>
+
 <details>
 <summary>Live configuration example</summary>
    
@@ -266,7 +268,7 @@ socket.send("Hello Mike");
 
 
 <details>
-<summary>Templating</summary>  
+<summary>Templating example</summary>  
   
 Basic templating system uses the default regex of "<%=(.*?)%>" to pull out captures from a binary.
 

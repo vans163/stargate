@@ -6,7 +6,7 @@
 
 -include("../global.hrl").
 
-connect(S) ->
+connect(_Headers, S) ->
     Socket = maps:get(socket, S),
     {ok, {SourceAddr, _}} = ?TRANSPORT_PEERNAME(Socket),
     ?PRINT({"WS_Unhandled: Connect", SourceAddr, self()}),

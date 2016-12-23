@@ -267,6 +267,25 @@ socket.send("Hello Mike");
 </details>
 
 <details>
+<summary>Websockets inject_headers</summary>  
+  
+Sometimes we need to send back custom headers in the
+handshake. We can now add an inject_headers param (which
+is a map) to the site definition.
+
+```erlang
+NoVNCServer = #{
+    port=> 5600, ip=> {0,0,0,0},
+    hosts=> #{
+        {ws, {"localhost:5000", "/websockify"}}=> {handler_panel_vnc, #{
+            inject_headers=> #{<<"Sec-WebSocket-Protocol">>=> <<"binary">>}
+        }}
+    }
+}
+```
+</details>
+
+<details>
 <summary>Cookie Parser example</summary>  
 ```erlang
 Map = stargate_plugin:cookie_parse(<<"token=mysecret; other_stuff=some_other_thing">>)

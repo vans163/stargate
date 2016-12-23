@@ -60,7 +60,8 @@ deflate(ZDeflate, Payload) ->
 handshake(WSKey, WSExtensions, WSOptions) ->
     Extensions = parse_extensions(WSExtensions),
     Compress = maps:get(compress, WSOptions, undefined),
-
+    InjectHeaders = maps:get(inject_headers, WSOptions, #{}),
+    
     Headers = #{
         <<"Upgrade">>=> <<"websocket">>,
         <<"Connection">>=> <<"Upgrade">>,
@@ -76,7 +77,8 @@ handshake(WSKey, WSExtensions, WSOptions) ->
             end
     end,
     Headers2 = maps:merge(Headers, ExtraHeaders),
-    RespBin = proto_http:response(101, Headers2, <<"">>),
+    Headers3 = maps:merge(Headers2, InjectHeaders),
+    RespBin = proto_http:response(101, Headers3, <<"">>),
 
     case map_size(ExtraHeaders) of
         0 -> {ok, RespBin};

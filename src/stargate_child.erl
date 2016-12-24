@@ -17,7 +17,7 @@ start_link(CleanArgs) -> gen_server:start_link(?MODULE, CleanArgs, []).
 init(CleanArgs=#{ip:=BindIp, port:=BindPort}) ->
 
     {ok, ListenSocket} = gen_tcp:listen(BindPort, [
-        {ip, BindIp}, {active, false}, {reuseaddr, true}
+        {ip, BindIp}, {active, false}, {reuseaddr, true}, {nodelay, true}
     ]),
 
     APid = handle_restart_acceptors(CleanArgs, ListenSocket, undefined),

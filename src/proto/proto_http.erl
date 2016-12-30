@@ -53,6 +53,7 @@ recv_headers_1(Socket, Map, Size) ->
 
 
 recv_body(_Socket, undefined) -> <<>>;
+recv_body(_Socket, <<"0">>) -> <<>>;
 recv_body(Socket, ContLen) when is_binary(ContLen) -> 
     recv_body(Socket, binary_to_integer(ContLen));
 recv_body(_Socket, ContLen) when ContLen > ?HTTP_MAX_BODY_SIZE -> throw(max_body_size_exceeded);

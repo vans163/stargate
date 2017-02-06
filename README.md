@@ -159,7 +159,7 @@ http('GET', Path, Query, Headers, Body, S) ->
 -module(ws_emitter).
 -compile(export_all).
 
-connect(_Headers, S) -> S.
+connect(_Query, _Headers, S) -> S.
 disconnect(S) -> ok.
 
 
@@ -230,10 +230,10 @@ Using max_heap_size erl vm arg can somewhat remedy this problem.
 ```erlang
 -module(ws_transmission).
 
--export([connect/2, disconnect/1]).
+-export([connect/3, disconnect/1]).
 -export([msg/2, handle_info/2]).
 
-connect(Headers, S) -> 
+connect(_Query, Headers, S) -> 
     Socket = maps:get(socket, S),
     Pid = self(),
   

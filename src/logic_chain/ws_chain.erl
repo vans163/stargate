@@ -32,7 +32,7 @@ proc(Type, Path, Query, Headers, Body, Data) ->
 
     TempState = maps:get(temp_state, Data2),
     TempState2 = TempState#{socket=> Socket},
-    case apply(WSHandlerAtom, connect, [Headers, TempState2]) of
+    case apply(WSHandlerAtom, connect, [Query, Headers, TempState2]) of
         reject -> {websocket_reject, proto_http:response(<<"404">>, #{}, <<>>), Data2};
 
         TempState3 ->

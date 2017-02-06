@@ -1,12 +1,12 @@
 -module(handler_wildcard_ws).
 
--export([connect/1, disconnect/1]).
+-export([connect/3, disconnect/1]).
 -export([msg/2]).
 -export([handle_info/2]).
 
 -include("../global.hrl").
 
-connect(_Headers, S) ->
+connect(_Query, _Headers, S) ->
     Socket = maps:get(socket, S),
     {ok, {SourceAddr, _}} = ?TRANSPORT_PEERNAME(Socket),
     ?PRINT({"WS_Unhandled: Connect", SourceAddr, self()}),

@@ -1,22 +1,21 @@
--module(stargate_child).
+-module(stargate_child_gen).
 -behaviour(gen_server).
 
--export([start_link/1]).
--export([init/1,
-         handle_call/3,
-         handle_cast/2,
-         handle_info/2,
-         terminate/2,
-         code_change/3]).
+-compile(export_all).
 
--include("global.hrl").
+%-import(stargate_acceptor_sup, [start_link/1]).
 
+code_change(_OldVersion, S, _Extra) -> {ok, S}. 
+handle_cast(_Message, S) -> {noreply, S}.
+handle_call(_Message, _From, S) -> {reply, ok, S}.
 
 start_link(CleanArgs) -> gen_server:start_link(?MODULE, CleanArgs, []).
 
-init(CleanArgs=#{ip:=BindIp, port:=BindPort}) ->
 
-    {ok, ListenSocket} = gen_tcp:listen(BindPort, [
+init(CleanArgs=#{ip:=BindIp, port:=BindPort}) ->
+    ListenArgs = maps:get(listen_args, CleanArgs, []),
+
+    {ok, ListenSocket} = gen_tcp:listen(BindPort, ListenArgs ++ [
         {ip, BindIp}, {active, false}, {reuseaddr, true}, {nodelay, true}
     ]),
 
@@ -28,6 +27,11 @@ init(CleanArgs=#{ip:=BindIp, port:=BindPort}) ->
         params=> CleanArgs
         }
     }.
+
+terminate(Reason, S) -> 
+    io:format("~p:~n Unhandled~n ~p~n ~p~n", [?MODULE, Reason, S]).
+
+
 
 handle_restart_acceptors(CleanArgs, ListenSocket, undefined) ->
     {ok, APid} = stargate_acceptor_sup:start_link({CleanArgs, ListenSocket}),
@@ -56,11 +60,10 @@ handle_info({update_params, NewParams},
 
     {noreply, S#{acceptor_sup=> APid, params=> P2}};
 
-handle_info(_Message, S) -> {noreply, S}.
+handle_info(Message, S) ->
+    io:format("~p:~n Unhandled~n ~p~n ~p~n", [?MODULE, Message, S]),
+    {noreply, S}.
 
-terminate(_Reason, S) -> ?PRINT({"stargate_child terminated:", _Reason, S}).
 
 
-code_change(_OldVersion, S, _Extra) -> {ok, S}. 
-handle_cast(_Message, S) -> {noreply, S}.
-handle_call(_Message, _From, S) -> {reply, ok, S}.
+

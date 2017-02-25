@@ -1,13 +1,7 @@
--module(proto_ws).
+-module(stargate_proto_ws).
+-compile(export_all).
 
--export([check_version/1]).
--export([handshake/3]).
--export([decode_frame/1]).
-
--export([encode_frame/1, encode_frame/2, encode_frame/3]).
--export([deflate/2]).
-
--include("../global.hrl").
+-import(stargate_proto_http, [response/3]).
 
 %TODO: is 7 and 8 backwards compat with 13?
 check_version(<<Ver/binary>>) -> check_version(binary_to_integer(Ver));
@@ -69,7 +63,7 @@ handshake(WSKey, WSExtensions, WSOptions) ->
     },
     ExtraHeaders = case Compress of
         undefined -> #{};
-        CompressOpts ->
+        _CompressOpts ->
             case maps:get(<<"permessage-deflate">>, Extensions, undefined) of
                 undefined -> #{};
                 <<>> ->
@@ -78,7 +72,7 @@ handshake(WSKey, WSExtensions, WSOptions) ->
     end,
     Headers2 = maps:merge(Headers, ExtraHeaders),
     Headers3 = maps:merge(Headers2, InjectHeaders),
-    RespBin = proto_http:response(101, Headers3, <<"">>),
+    RespBin = stargate_proto_http:response(101, Headers3, <<"">>),
 
     case map_size(ExtraHeaders) of
         0 -> {ok, RespBin};

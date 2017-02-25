@@ -8,13 +8,27 @@ Currently being tested for single page app and simple use cases.
 No planned support for full HTTP spec.  
 
 ### Releases
+These releases are breaking changes.  
+  
 0.1-genserver  
-This release is the original stargate, using 1 acceptor and a gen_server model.
+  - 1 acceptor 
+  - Ticking gen_server
 
-master a.k.a. 0.2-gen_statem  
-R19.1+ only.  
-This release is more modern featuring a mostly tickless gen_statem with variable acceptor pool (default equal to scheduler count) 
-plus OTP supervision trees.  
+0.2-gen_statem
+  - R19.1+ only
+  - OTP supervision trees
+  - Tickless gen_statem
+  - Multiple acceptors
+  - Query and Headers on websocket connection
+
+master a.k.a 0.3-proc_lib
+  - R19.2+ only
+  - uses proc_lib for vessel now
+  - websocket connection becomes a gen_server process
+  - keep_alive http connection currently under question
+  - all headers normalized to lowercase binary
+    - preparation for http/2
+    
 
 ### Current Features
 - Simple support for HTTP  
@@ -26,6 +40,7 @@ plus OTP supervision trees.
   - Static File Server
 - Websockets  
   - Compression  
+  - gen_server behavior
 
 ### Roadmap
 - half-closed sockets  
@@ -93,6 +108,7 @@ stargate:launch_demo().
   #{
       port=> 80, 
       ip=> {0,0,0,0},
+      listen_args=> [{nodelay, false}],
       hosts=> #{
           {http, "public.templar-archive.aiur"}=> {templar_archive_public, #{}},
           {http, "*"}=> {handler_redirect_https, #{}},
@@ -105,6 +121,7 @@ WSCompress = #{window_bits=> 15, level=>best_speed, mem_level=>8, strategy=>defa
   #{
       port=> 443,
       ip=> {0,0,0,0},
+      listen_args=> [{nodelay, false}],
       ssl_opts=> [
           {certfile, "./priv/lets-encrypt-cert.pem"},
           {keyfile, "./priv/lets-encrypt-key.pem"},
@@ -157,27 +174,43 @@ http('GET', Path, Query, Headers, Body, S) ->
 
 
 -module(ws_emitter).
+-behavior(gen_server).
 -compile(export_all).
 
-connect(_Query, _Headers, S) -> S.
-disconnect(S) -> ok.
+handle_cast(_Message, S) -> {noreply, S}.
+handle_call(_Message, _From, S) -> {reply, ok, S}.
+code_change(_OldVersion, S, _Extra) -> {ok, S}. 
+
+start_link(Params) -> gen_server:start_link(?MODULE, Params, []).
+
+init({ParentPid, Query, Headers, State}) ->
+    %If we dont trap_exit plus catch 'EXIT' we cant have terminate called, up to you
+    process_flag(trap_exit, true),
+
+    {ok, State#{parent=> ParentPid}}.
+
+terminate(Reason, _S) -> 
+    io:format("~p:~n disconnect~n ~p~n", [?MODULE, Reason]).
+
+handle_info({'EXIT', _, _Reason}, D) ->
+    {stop, {shutdown, got_exit_signal}, D};
 
 
-handle_info({send, {transmission, Freq}}, S) -> 
-    stargate_plugin:ws_send(self(), {bin, Freq},
-    S.
-handle_info({send, {chat, Text}}, S) -> 
-    stargate_plugin:ws_send(self(), {text_compress, Text},
-    S.
 
+handle_info({text, Bin}, S=#{parent:= ParentPid}) ->
+    ParentPid ! {ws_send, {bin, <<"hello">>}},
+    ParentPid ! {ws_send, {bin_compress, <<"hello compressed">>}},
+    {noreply, S};
 
-msg(<<"{transmission: 555}">>, S) ->
-    stargate_plugin:ws_message(self(), {send, {transmission, 555}}),
-    S;
-msg(<<"{chat: 'hello'}">>, S) ->
-    stargate_plugin:ws_message(self(), {send, {chat, "goodbye"}}),
-    S;
-msg(_, S) -> S.
+handle_info({bin, Bin}, S) ->
+    io:format("~p:~n Got bin~n ~p~n", [?MODULE, Bin]),
+    ParentPid ! {ws_send, {text, <<"a websocket text msg">>}},
+    ParentPid ! {ws_send, {text_compress, <<"a websocket text msg compressed">>}},
+    {noreply, S};
+
+handle_info(Message, S) -> 
+    io:format("~p:~n Unhandled handle_info~n ~p~n ~p~n", [?MODULE, Message, S]),
+    {noreply, S}.
 
 ```
 </details>  
@@ -229,33 +262,48 @@ Using max_heap_size erl vm arg can somewhat remedy this problem.
 
 ```erlang
 -module(ws_transmission).
+-behavior(gen_server).
+-compile(export_all).
 
--export([connect/3, disconnect/1]).
--export([msg/2, handle_info/2]).
+handle_cast(_Message, S) -> {noreply, S}.
+handle_call(_Message, _From, S) -> {reply, ok, S}.
+code_change(_OldVersion, S, _Extra) -> {ok, S}. 
 
-connect(_Query, Headers, S) -> 
-    Socket = maps:get(socket, S),
-    Pid = self(),
-  
-    Cookies = maps:get('Cookie', Headers, undefined),
+start_link(Params) -> gen_server:start_link(?MODULE, Params, []).
 
-    stargate_plugin:ws_send(Pid, {text, "hello joe"}),
-    stargate_plugin:ws_send(Pid, {text, <<"hello joe">>}),
-    stargate_plugin:ws_send(Pid, {bin, <<1,2,3,4>>}),
+init({ParentPid, Query, Headers, State}) ->
+    %If we dont trap_exit plus catch 'EXIT' we cant have terminate called, up to you
+    process_flag(trap_exit, true),
 
-    stargate_plugin:ws_send(Pid, {text_compress, <<"hello mike">>}),
-    stargate_plugin:ws_send(Pid, {bin_compress, <<1,2,3,4>>}),
-
-    stargate_plugin:ws_send(Pid, close),
-
+    Cookies = maps:get(<<"cookie">>, Headers, undefined),
     case Cookies of
-      <<"token=mysecret">> -> S;
-      _ -> reject
+        <<"token=mysecret">> -> {ok, State#{parent=> ParentPid}};
+        _ -> ignore
     end.
 
-disconnect(S) -> ok.
-msg(Bin, S) -> S.
-handle_info(Msg, S) -> S.
+terminate(Reason, _S) -> 
+    io:format("~p:~n disconnect~n ~p~n", [?MODULE, Reason]).
+
+handle_info({'EXIT', _, _Reason}, D) ->
+    {stop, {shutdown, got_exit_signal}, D};
+
+
+
+handle_info({text, Bin}, S=#{parent:= ParentPid}) ->
+    ParentPid ! {ws_send, {bin, <<"hello">>}},
+    ParentPid ! {ws_send, {bin_compress, <<"hello compressed">>}},
+    {noreply, S};
+
+handle_info({bin, Bin}, S) ->
+    io:format("~p:~n Got bin~n ~p~n", [?MODULE, Bin]),
+    ParentPid ! {ws_send, {text, "a websocket text list"}},
+    ParentPid ! {ws_send, {text, <<"a websocket text bin">>}},
+    ParentPid ! {ws_send, {text_compress, <<"a websocket text msg compressed">>}},
+    {noreply, S};
+
+handle_info(Message, S) -> 
+    io:format("~p:~n Unhandled handle_info~n ~p~n ~p~n", [?MODULE, Message, S]),
+    {noreply, S}.
 ```
 
 ```javascript

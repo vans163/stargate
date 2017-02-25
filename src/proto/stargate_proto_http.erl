@@ -1,13 +1,12 @@
--module(proto_http).
+-module(stargate_proto_http).
+-compile(export_all).
 
--export([recv/1]).
--export([recv_headers/1]).
--export([recv_body/2]).
+-import(stargate_transport, [setopts/2, send/2, close/1, recv/3]).
 
--export([response/3]).
--export([path_and_query/1]).
+-define(TIMEOUT, 2* 60000).
 
--include("../global.hrl").
+-define(HTTP_MAX_HEADER_SIZE, 8000).
+-define(HTTP_MAX_BODY_SIZE, 64000).
 
 
 path_and_query(Path) ->
@@ -32,22 +31,32 @@ path_and_query(Path) ->
 
 recv(Socket) ->
     HttpHeaders = recv_headers(Socket),
-    ContLen = maps:get('Content-Length', HttpHeaders, undefined),
+    ContLen = maps:get(<<"content-length">>, HttpHeaders, undefined),
     %TransEncoding = maps:get('Transfer-Encoding', HttpHeaders, undefined),
     Body = recv_body(Socket, ContLen),
     {HttpHeaders, Body}.
 
 recv_headers(Socket) ->
-    ok = ?TRANSPORT_SETOPTS(Socket, [{active, false}, {packet, httph_bin}]),
+    ok = setopts(Socket, [{active, false}, {packet, httph_bin}]),
     recv_headers_1(Socket).
 
 %TODO: This does not count the Header Key, ops
 recv_headers_1(Socket) -> recv_headers_1(Socket, #{}, 0).
 recv_headers_1(_, _, Size) when Size > ?HTTP_MAX_HEADER_SIZE -> throw(max_header_size_exceeded);
 recv_headers_1(Socket, Map, Size) ->
-    case ?TRANSPORT_RECV(Socket, 0, ?TIMEOUT) of
-        {ok, {http_header,_,Key,undefined, Value}} -> 
-            recv_headers_1(Socket, Map#{Key=>Value}, Size + byte_size(Value));
+    case recv(Socket, 0, ?TIMEOUT) of
+        {ok, {http_header, _, Key, undefined, Value}} when is_atom(Key) ->
+            LKey = erlang:atom_to_list(Key),
+            LKey2 = string:to_lower(LKey),
+            BKey = unicode:characters_to_binary(LKey2),
+            recv_headers_1(Socket, Map#{BKey=>Value}, Size + byte_size(Value));
+
+        {ok, {http_header, _, Key, undefined, Value}} ->
+            LKey = unicode:characters_to_list(Key),
+            LKey2 = string:to_lower(LKey),
+            BKey = unicode:characters_to_binary(LKey2),
+            recv_headers_1(Socket, Map#{BKey=>Value}, Size + byte_size(Value));
+
         {ok, http_eoh} -> Map
     end.
 
@@ -58,8 +67,8 @@ recv_body(Socket, ContLen) when is_binary(ContLen) ->
     recv_body(Socket, binary_to_integer(ContLen));
 recv_body(_Socket, ContLen) when ContLen > ?HTTP_MAX_BODY_SIZE -> throw(max_body_size_exceeded);
 recv_body(Socket, ContLen) ->
-    ok = ?TRANSPORT_SETOPTS(Socket, [{active, false}, {packet, raw}, binary]),
-    {ok, Body} = ?TRANSPORT_RECV(Socket, ContLen, ?TIMEOUT),
+    ok = setopts(Socket, [{active, false}, {packet, raw}, binary]),
+    {ok, Body} = recv(Socket, ContLen, ?TIMEOUT),
     Body.
 
 

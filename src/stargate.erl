@@ -1,25 +1,13 @@
 -module(stargate).
+-compile(export_all).
 
--export([warp_in/1, warp_in/2]).
--export([warp_out/1, warp_out/2]).
--export([update_params/2]).
-
--export([launch_demo/0]).
-
--include("global.hrl").
+%-import([stargate_sup, [start_child/1]).
 
 
 warp_in(StargateArgs) ->
-    SupPid = whereis(stargate_sup),
-    warp_in(SupPid, StargateArgs).
+    {ok, _Pid} = stargate_sup:start_child(fix_params(StargateArgs)).
 warp_out(Pid) ->
-    SupPid = whereis(stargate_sup),
-    warp_out(SupPid, Pid).
-
-warp_in(SupPid, StargateArgs) ->
-    stargate_sup:start_child(SupPid, fix_params(StargateArgs)).
-warp_out(SupPid, Pid) ->
-    stargate_sup:delete_child(SupPid, Pid).
+    stargate_sup:terminate_child(Pid).
 
 update_params(Pid, NewParams) ->
     Pid ! {update_params, NewParams}.
@@ -33,9 +21,10 @@ launch_demo() ->
     HttpArgs = #{
         port=> 8000,
         ip=> {0,0,0,0},
+        listen_args=> [],
         hosts=> #{
-            {http, "*"}=> {?HANDLER_WILDCARD, #{}},
-            {ws, "*"}=> {?HANDLER_WILDCARD_WS, #{}}
+            {http, "*"}=> {stargate_handler_wildcard, #{}},
+            {ws, "*"}=> {stargate_handler_wildcard_ws, #{}}
         }
     },
 
@@ -44,13 +33,14 @@ launch_demo() ->
     HttpsArgs = #{
         port=> 8443,
         ip=> {0,0,0,0},
+        listen_args=> [],
         ssl_opts=> [
             {certfile, "./priv/cert.pem"},
             {keyfile, "./priv/key.pem"}
         ],
         hosts=> #{
-            {http, "*"}=> {?HANDLER_WILDCARD, #{}},
-            {ws, "*"}=> {?HANDLER_WILDCARD_WS, #{compress=>WSCompress}}
+            {http, "*"}=> {stargate_handler_wildcard, #{}},
+            {ws, "*"}=> {stargate_handler_wildcard_ws, #{compress=>WSCompress}}
         }
     },
 
@@ -60,8 +50,8 @@ launch_demo() ->
 
 
 ensure_wildcard(Hosts) ->
-    Hosts2 = ensure_wildcard({http, <<"*">>}, ?HANDLER_WILDCARD, Hosts),
-    Hosts3 = ensure_wildcard({ws, <<"*">>}, ?HANDLER_WILDCARD_WS, Hosts2),
+    Hosts2 = ensure_wildcard({http, <<"*">>}, stargate_handler_wildcard, Hosts),
+    Hosts3 = ensure_wildcard({ws, <<"*">>}, stargate_handler_wildcard_ws, Hosts2),
     Hosts3.
 ensure_wildcard(Key, Handler, Hosts) ->
     case maps:get(Key, Hosts, undefined) of
@@ -106,7 +96,7 @@ fix_params(Params) ->
             maps:put(error_logger, 
                 fun(Socket, What, Error) -> 
                     Trace = try throw(42) catch 42 -> erlang:get_stacktrace() end,
-                    io:format("~p~n", [{?TRANSPORT_PEERNAME(Socket), What, Error, Trace}])
+                    io:format("~p~n", [{Socket, What, Error, Trace}])
                 end,
                 Params2
             );

@@ -7,13 +7,13 @@
 start_link(Params) ->
     supervisor:start_link(?MODULE, Params).
 
-init(_Params={StargateArgs, ListenSocket}) ->
+init({StargateArgs, ListenSocket}) ->
 
     AcceptorCount = erlang:system_info(schedulers),
     Acceptors = [
         {
             {acceptor, self(), N}, 
-            {stargate_acceptor, start_link, [{StargateArgs, ListenSocket, N}]}, 
+            {stargate_acceptor_gen, start_link, [{StargateArgs, ListenSocket, N}]}, 
             permanent, 5000, worker, []
         } || N <- lists:seq(1, AcceptorCount)
     ],

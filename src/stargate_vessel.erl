@@ -1,12 +1,19 @@
 -module(stargate_vessel).
 -behaviour(gen_statem).
-
 -compile(export_all).
 
--include("global.hrl").
+-import(stargate_transport, [setopts/2, send/2, close/1]).
+-import(stargate_proto_http, [path_and_query/1, recv/1, response/3]).
+-import(stargate_proto_ws, [decode_frame/1, encode_frame/1]).
+
+-define(TIMEOUT_BASIC, 2 * 60000).
+-define(WS_PING_INTERVAL, 15000).
+
 
 %callback_mode() ->  state_functions.
 callback_mode() ->  handle_event_function.
+
+code_change(_V, S, D, _E) -> {ok, S, D}.
 
 start(Params) -> gen_statem:start(?MODULE, Params, []).
 start_link(Params) -> gen_statem:start_link(?MODULE, Params, []).
@@ -17,18 +24,41 @@ init(Params) ->
     {ok, 
         waiting_socket,
         #{params=> Params, temp_state=> #{}},
-        ?MAX_TCP_TIMEOUT
-        %{next_event, internal, init}
+        ?TIMEOUT_BASIC
     }.
+
+terminate({shutdown, tcp_closed}, _S, _D) -> ok;
+terminate(R, S, D) ->
+    io:format("~p:~n Terminated~n ~p~n ~p~n ~p~n", [?MODULE, R, S, D]).
+
+
+
+
+%private funcs
+get_http_handler(Host, Data) ->
+    Params = maps:get(params, Data),
+    Hosts = maps:get(hosts, Params),
+
+    WCardAtom = maps:get({http, <<"*">>}, Hosts),
+    {_Atom, _Opts} = maps:get({http, Host}, Hosts, WCardAtom).
+
+get_ws_handler(Host, Path, Data) ->
+    Params = maps:get(params, Data),
+    Hosts = maps:get(hosts, Params),
+
+    WCardAtom = maps:get({ws, <<"*">>}, Hosts),
+    {_Atom, _Opts} = maps:get({ws, {Host, Path}}, Hosts, WCardAtom).
+
+
 
 
 %waiting_socket - SSL
 handle_event(info, {pass_socket, ClientSocket}, waiting_socket, 
     D=#{params:= #{ssl_opts:= SSLOpts, error_logger:= ELogger}}) 
 ->
-    case ssl:ssl_accept(ClientSocket, SSLOpts, 30000) of
+    case ssl:ssl_accept(ClientSocket, SSLOpts, ?TIMEOUT_BASIC) of
         {ok, SSLSocket} ->
-            ok = ?TRANSPORT_SETOPTS(SSLSocket, [{active, once}, {packet, http_bin}]),
+            ok = setopts(SSLSocket, [{active, once}, {packet, http_bin}]),
             {next_state, https, D#{socket=> SSLSocket}};
 
         {error, Error} ->
@@ -37,25 +67,32 @@ handle_event(info, {pass_socket, ClientSocket}, waiting_socket,
     end;
 %waiting_socket - Regular
 handle_event(info, {pass_socket, ClientSocket}, waiting_socket, D) ->
-    ok = ?TRANSPORT_SETOPTS(ClientSocket, [{active, once}, {packet, http_bin}]),
+    ok = setopts(ClientSocket, [{active, once}, {packet, http_bin}]),
     {next_state, http, D#{socket=> ClientSocket}};
 
 
-
-handle_event(timeout, _EvContent, _S, D) 
--> {stop, {shutdown, tcp_closed}, D};
-
-handle_event(info, {tcp_closed, _Socket}, _S, D) 
--> {stop, {shutdown, tcp_closed}, D};
-handle_event(info, {ssl_closed, _Socket}, _S, D) 
--> {stop, {shutdown, tcp_closed}, D};
+%exit handling Maybe in the future we restart
+handle_event(info, {'EXIT', WSPid, _Reason}, S, D=#{ws_pid:= WSPid}) ->
+    {stop, {shutdown, tcp_closed}, D};
 
 
+handle_event(timeout, _EvContent, _S, D) ->
+    {stop, {shutdown, tcp_closed}, D};
 
+handle_event(info, {tcp_closed, _Socket}, _S, D) ->
+    {stop, {shutdown, tcp_closed}, D};
+handle_event(info, {ssl_closed, _Socket}, _S, D) ->
+    {stop, {shutdown, tcp_closed}, D};
+
+handle_event(info, {tcp_error, _Socket, Error}, _S, D) ->
+    io:format("~p:~n tcp_error~n ~p~n", [?MODULE, Error]),
+    {stop, {shutdown, tcp_closed}, D};
+handle_event(info, {ssl_error, _Socket, Error}, _S, D) ->
+    io:format("~p:~n ssl_error~n ~p~n", [?MODULE, Error]),
+    {stop, {shutdown, tcp_closed}, D};
 
 %We got an error parsing the request line, netscanner or malformed
-handle_event(info, {_T, _Socket, {http_error, _}}, _S, D) 
-->
+handle_event(info, {_T, _Socket, {http_error, _}}, _S, D) ->
     {stop, {shutdown, tcp_closed}, D};
 
 %We dont support this, netscanners make this request? Never a browser?
@@ -70,86 +107,119 @@ handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVe
     S, D) when T == http; T == ssl 
 ->
     %Type = 'GET'/'POST'/'ETC'
+    TempState = maps:get(temp_state, D),
 
-    {Path, Query} = proto_http:path_and_query(RawPath),
-    {Headers, Body} = proto_http:recv(Socket),
+    {Path, Query} = stargate_proto_http:path_and_query(RawPath),
+    {Headers, Body} = stargate_proto_http:recv(Socket),
+    Host = maps:get(<<"host">>, Headers, <<"*">>),
+    Upgrade = maps:get(<<"upgrade">>, Headers, undefined),
 
-    case http_chain:proc(Type, Path, Query, Headers, Body, D) of
-        {http_close, RespBin, D2} ->
-            ?TRANSPORT_SEND(Socket, RespBin),
-            ?TRANSPORT_CLOSE(Socket),
-            {stop, {shutdown, tcp_closed}, D2};
+    case Upgrade of
+        undefined ->
+            {Atom, _} = get_http_handler(Host, D),
+            {RCode, RHeaders, RBody, TempState2} = apply(Atom, http, 
+                [Type, Path, Query, Headers, Body, TempState#{socket=> Socket, host=> Host}]),
 
-        {http_keepalive, RespBin, D2} ->
-            case ?TRANSPORT_SEND(Socket, RespBin) of
-                {error, _Error} -> 
-                    %ELogger(Socket, <<"transport_send">>, Error),
-                    {stop, {shutdown, tcp_closed}, D2};
+            case maps:get(<<"connection">>, Headers, <<"close">>) of
+                <<"keep-alive">> -> 
+                    RHeaders2 = RHeaders#{<<"Connection">>=> <<"keep-alive">>},
+                    RespBin = stargate_proto_http:response(RCode, RHeaders2, RBody),
+                    case send(Socket, RespBin) of
+                        {error, _Error} -> 
+                            %ELogger(Socket, <<"transport_send">>, Error),
+                            {stop, {shutdown, tcp_closed}, D#{temp_state=> TempState2}};
 
-                ok ->
-                    ok = ?TRANSPORT_SETOPTS(Socket, [{active, once}, {packet, http_bin}]),
-                    {next_state, S, D2, ?MAX_TCP_TIMEOUT}
+                        ok ->
+                            ok = setopts(Socket, [{active, once}, {packet, http_bin}]),
+                            {next_state, S, D#{temp_state=> TempState2}, ?TIMEOUT_BASIC}
+                    end;
+
+                _ -> 
+                    RHeaders2 = RHeaders#{<<"Connection">>=> <<"close">>},
+                    RespBin = stargate_proto_http:response(RCode, RHeaders2, RBody),
+                    send(Socket, RespBin),
+                    close(Socket),
+                    {stop, {shutdown, tcp_closed}, D#{temp_state=> TempState2}}
             end;
 
-        {websocket_upgrade, RespBin, D2} ->
-            case ?TRANSPORT_SEND(Socket, RespBin) of
-                {error, _Error} -> 
-                    %ELogger(Socket, <<"transport_send">>, Error),
-                    {stop, {shutdown, tcp_closed}, D2};
+        <<"websocket">> ->
+            {WSAtom, WSOpts} = get_ws_handler(maps:get(<<"host">>, Headers, <<"*">>), Path, D),
 
-                ok ->
-                    ok = ?TRANSPORT_SETOPTS(Socket, [{active, once}, {packet, raw}, binary]),
+            case apply(WSAtom, start_link, 
+                [{self(), Query, Headers, TempState#{socket=> Socket}}])
+            of
+                ignore ->
+                    send(Socket, stargate_proto_http:response(<<"404">>, #{}, <<>>)),
+                    close(Socket),
+                    {stop, {shutdown, tcp_closed}, D};
+
+                {error, _} ->
+                    send(Socket, stargate_proto_http:response(<<"404">>, #{}, <<>>)),
+                    close(Socket),
+                    {stop, {shutdown, tcp_closed}, D};
+
+                {ok, WSPid} ->
+                    %WSVersion = maps:get(<<"sec-websocket-version">>, Headers),
+                    WSKey = maps:get(<<"sec-websocket-key">>, Headers),
+                    WSExtensions = maps:get(<<"sec-websocket-extensions">>, Headers, <<"">>),
+                    {D2, WSResponseBin} = case stargate_proto_ws:handshake(WSKey, WSExtensions, WSOpts) of
+                        {ok, Bin} -> {D, Bin};
+                        {compress, Bin, ZInflate, ZDeflate} -> 
+                            {D#{zinflate=> ZInflate, zdeflate=> ZDeflate}, Bin}
+                    end,
+                    send(Socket, WSResponseBin),
+
+                    ok = setopts(Socket, [{active, once}, {packet, raw}, binary]),
                     erlang:send_after(?WS_PING_INTERVAL, self(), ws_ping),
+                    D3 = D2#{ws_pid=> WSPid, ws_buf=> <<>>},
+                    {next_state, websocket, D3, ?TIMEOUT_BASIC}
 
-                    {next_state, websocket, D2, ?MAX_TCP_TIMEOUT}
-            end;
+            end
 
-        {websocket_reject, RespBin, D2} ->
-            ?TRANSPORT_SEND(Socket, RespBin),
-            ?TRANSPORT_CLOSE(Socket),
-            {stop, {shutdown, tcp_closed}, D2}
     end;
 
 
 
 %%% Websocket stuff
-handle_event(info, {T, Socket, Bin}, websocket, 
-    D=#{ws_handler:= WSHandler, ws_buf:= WSBuf}) 
-when T == tcp; T == ssl ->
-    ok = ?TRANSPORT_SETOPTS(Socket, [{active, once}, binary]),
+handle_event(info, {T, Socket, Bin}, websocket, D=#{ws_pid:= WSPid, ws_buf:= WSBuf}) 
+    when T == tcp; T == ssl 
+->
+    ok = setopts(Socket, [{active, once}, binary]),
     
             %close
-    (fun Decode({ok, 8, _, _, _Buffer}, _D) -> 
-                ?TRANSPORT_CLOSE(Socket),
-                {stop, {shutdown, tcp_closed}, _D};
+    (fun Decode({ok, 8, _, _, _Buffer}, DD) -> 
+                close(Socket),
+                {stop, {shutdown, tcp_closed}, DD};
 
             %pong
-            Decode({ok, 10, _, _, Buffer}, _D) ->
-                Decode(proto_ws:decode_frame(Buffer), _D);
+            Decode({ok, 10, _, _, Buffer}, DD) ->
+                Decode(stargate_proto_ws:decode_frame(Buffer), DD);
 
             %regular and compressed frame
-            Decode({ok, _Opcode, Compressed, Payload, Buffer}, _D) ->
+            Decode({ok, Opcode, Compressed, Payload, Buffer}, DD) ->
                 Payload2 = case Compressed of
                     0 -> Payload;
                     1 ->
                         iolist_to_binary(
-                            zlib:inflate(maps:get(zinflate, _D), 
-                                <<Payload/binary,0,0,255,255>>)
-                        )
+                            zlib:inflate(maps:get(zinflate, DD), 
+                                <<Payload/binary,0,0,255,255>>))
                 end,
-                TempState = maps:get(temp_state, _D),
-                TempState2 = apply(WSHandler, msg, [Payload2, TempState]),
-                Decode(proto_ws:decode_frame(Buffer), _D#{temp_state=> TempState2});
+                FrameType = case Opcode of
+                    1 -> text;
+                    2 -> bin
+                end,
+                WSPid ! {FrameType, Payload2},
+                Decode(stargate_proto_ws:decode_frame(Buffer), DD);
 
             %incomplete
-            Decode({incomplete, Buffer}, _D) ->
-                {next_state, websocket, _D#{ws_buf=> Buffer}, ?MAX_TCP_TIMEOUT}
+            Decode({incomplete, Buffer}, DD) ->
+                {next_state, websocket, DD#{ws_buf=> Buffer}, ?TIMEOUT_BASIC}
 
-    end)(proto_ws:decode_frame(<<WSBuf/binary, Bin/binary>>), D);
+    end)(stargate_proto_ws:decode_frame(<<WSBuf/binary, Bin/binary>>), D);
 
 handle_event(info, ws_ping, websocket, D=#{socket:= Socket}) ->
     erlang:send_after(?WS_PING_INTERVAL, self(), ws_ping),
-    p_send(Socket, proto_ws:encode_frame(ping), websocket, D);
+    p_send(Socket, stargate_proto_ws:encode_frame(ping), websocket, D);
 
 
 handle_event(info, {ws_send, {text, P}}, websocket, D=#{socket:= Socket}) ->
@@ -173,49 +243,14 @@ handle_event(info, {ws_send, {bin_compress, P}}, websocket, D=#{socket:= Socket}
             P2 = proto_ws:deflate(ZDeflate, P),
             proto_ws:encode_frame(P2, bin_compress)
     end,
-    p_send(Socket, Bin, websocket, D);
-
-%forward messages to ws_handler
-handle_event(info, {ws_message, Msg}, websocket, D=#{ws_handler:= WSHandler}) ->
-    TempState = maps:get(temp_state, D),
-    try
-        apply(WSHandler, handle_info, [Msg, TempState])
-    catch
-        E:R -> ?PRINT({"info apply failed", Msg, E, R})
-    end,
-    {next_state, websocket, D};
-
-%Unhandled events forward to ws_handler or crash
-handle_event(info, Msg, websocket, D=#{ws_handler:= WSHandler}) ->
-    %?PRINT({"Unhandled msg", Msg, S, D}),
-    TempState = maps:get(temp_state, D),
-    TempState2 = apply(WSHandler, handle_info, [Msg, TempState]),
-    {next_state, websocket, D#{temp_state=>TempState2}}.
-
-%handle_event(info, Msg, S, D) ->
-    %?PRINT({"Unhandled msg", Msg, S, D}),
-%    {next_state, S, D}.
+    p_send(Socket, Bin, websocket, D).
 
 
-terminate({shutdown, tcp_closed}, _S, D) -> forward_ws_closed(D);
-terminate(R, S, D) ->
-    forward_ws_closed(D),
-    ?PRINT({"Terminated", R, S, D}),
-    ok.
-
-
-code_change(_V, S, D, _E) -> {ok, S, D}.
-
-
-
-forward_ws_closed(#{ws_handler:= WSHandler, temp_state:= TempState}) ->
-    apply(WSHandler, disconnect, [TempState]);
-forward_ws_closed(_) -> ok.
 
 p_send(Socket, Bin, S, D=#{params:= #{error_logger:= _ELogger}}) ->
-    case ?TRANSPORT_SEND(Socket, Bin) of
+    case send(Socket, Bin) of
         ok -> 
-            {next_state, S, D, ?MAX_TCP_TIMEOUT};
+            {next_state, S, D, ?TIMEOUT_BASIC};
 
         {error, _Error} -> 
             %ELogger(Socket, <<"transport_send">>, Error),

@@ -3,7 +3,7 @@
   {mod, { stargate_app, []}},
 
   {description, "Stargate - single page app webserver"},
-  {vsn, "0.2"},
+  {vsn, "0.3"},
   {registered, []},
   {applications, [
                   kernel,

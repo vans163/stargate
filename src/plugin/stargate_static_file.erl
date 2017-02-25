@@ -1,10 +1,6 @@
 -module(stargate_static_file).
 -compile(export_all).
 
--ifndef(PRINT).
--define(PRINT(Var), io:format("~p:~p - ~p~n", [?MODULE, ?LINE, Var])).
--endif.
-
 sanitize_forward_slash(Path) ->
     PathCleaner = binary:replace(Path, <<"//">>, <<"/">>),
     case binary:match(PathCleaner, <<"//">>) of
@@ -30,7 +26,7 @@ sanitize_path(Path) ->
 .
 
 can_accept_gzip(Headers) ->
-    case maps:get('Accept-Encoding', Headers, undefined) of
+    case maps:get(<<"accept-encoding">>, Headers, undefined) of
         undefined -> no;
         Bin ->
             case binary:match(Bin, <<"gzip">>) of
@@ -49,7 +45,7 @@ serve_static(Base, DirtyPath, Headers, S) ->
         true ->
             {ok, Bin} = file:read_file(Fullpath),
 
-            Etag = maps:get('If-None-Match', Headers, undefined),
+            Etag = maps:get(<<"if-none-match">>, Headers, undefined),
 
             CanGZip = can_accept_gzip(Headers),
             {Code, HeadersReply, BinReply} = case filename:extension(Fullpath) of
@@ -64,7 +60,7 @@ serve_static(Base, DirtyPath, Headers, S) ->
     .
 
 serve_static_bin(Bin, Headers, S) ->
-    Etag = maps:get('If-None-Match', Headers, undefined),
+    Etag = maps:get(<<"if-none-match">>, Headers, undefined),
 
     CanGZip = can_accept_gzip(Headers),
     {Code, HeadersReply, BinReply} = case CanGZip of

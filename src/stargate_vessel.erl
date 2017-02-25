@@ -74,7 +74,9 @@ handle_event(info, {pass_socket, ClientSocket}, waiting_socket, D) ->
 %exit handling Maybe in the future we restart
 handle_event(info, {'EXIT', WSPid, _Reason}, S, D=#{ws_pid:= WSPid}) ->
     {stop, {shutdown, tcp_closed}, D};
-
+handle_event(info, {'EXIT', _, _Reason}, S, D) ->
+    {stop, {shutdown, tcp_closed}, D};
+    
 
 handle_event(timeout, _EvContent, _S, D) ->
     {stop, {shutdown, tcp_closed}, D};

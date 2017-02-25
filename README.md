@@ -23,7 +23,6 @@ These releases are breaking changes.
 
 master a.k.a 0.3-proc_lib
   - R19.2+ only
-  - uses proc_lib for vessel now
   - websocket connection becomes a gen_server process
   - keep_alive http connection currently under question
   - all headers normalized to lowercase binary
@@ -51,35 +50,28 @@ master a.k.a 0.3-proc_lib
 
 ### Thinness
 <details>
-<summary>Stargate is currently 1090 lines of code</summary>  
+<summary>Stargate is currently 1144 lines of code</summary>  
 ```
 git ls-files | grep -P ".*(erl|hrl)" | xargs wc -l
 
+   43 src/app/acceptor/stargate_acceptor_gen.erl
+   25 src/app/acceptor/stargate_acceptor_sup.erl
     8 src/app/stargate_app.erl
+   69 src/app/stargate_child_gen.erl
+   25 src/app/stargate_sup.erl
+    6 src/handler/stargate_handler_redirect_https.erl
+   11 src/handler/stargate_handler_wildcard.erl
+   39 src/handler/stargate_handler_wildcard_ws.erl
+   21 src/plugin/stargate_plugin.erl
+   88 src/plugin/stargate_static_file.erl
+   96 src/plugin/stargate_template.erl
+  172 src/proto/stargate_proto_http.erl
+  162 src/proto/stargate_proto_ws.erl
+  103 src/stargate.erl
+   16 src/stargate_transport.erl
+  260 src/stargate_vessel.erl
 
-   11 src/handler/handler_redirect_https.erl
-   12 src/handler/handler_wildcard.erl
-   23 src/handler/handler_wildcard_ws.erl
-
-   11 src/plugin/stargate_plugin.erl
-   82 src/plugin/stargate_static_file.erl
-
-  161 src/proto/proto_http.erl
-  165 src/proto/proto_ws.erl
-
-   36 src/logic_chain/http_chain.erl
-   37 src/logic_chain/ws_chain.erl
-
-   49 src/global.hrl
-
-  113 src/stargate.erl
-   40 src/stargate_acceptor.erl
-   25 src/stargate_acceptor_sup.erl
-   65 src/stargate_child.erl
-   37 src/stargate_sup.erl
-  215 src/stargate_vessel.erl
-
- 1090 total
+ 1144 total
 
 ```
 </details> 

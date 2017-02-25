@@ -4,7 +4,7 @@
 
 -import(stargate_transport, [setopts/2, send/2, close/1]).
 -import(stargate_proto_http, [path_and_query/1, recv/1, response/3]).
--import(stargate_proto_ws, [decode_frame/1, encode_frame/1]).
+-import(stargate_proto_ws, [decode_frame/1, encode_frame/1, encode_frame/2, deflate/2]).
 
 -define(TIMEOUT_BASIC, 2 * 60000).
 -define(WS_PING_INTERVAL, 15000).
@@ -225,25 +225,25 @@ handle_event(info, ws_ping, websocket, D=#{socket:= Socket}) ->
 
 
 handle_event(info, {ws_send, {text, P}}, websocket, D=#{socket:= Socket}) ->
-    Bin = proto_ws:encode_frame(P, text),
+    Bin = stargate_proto_ws:encode_frame(P, text),
     p_send(Socket, Bin, websocket, D);
 handle_event(info, {ws_send, {bin, P}}, websocket, D=#{socket:= Socket}) ->
-    Bin = proto_ws:encode_frame(P, bin),
+    Bin = stargate_proto_ws:encode_frame(P, bin),
     p_send(Socket, Bin, websocket, D);
 handle_event(info, {ws_send, {text_compress, P}}, websocket, D=#{socket:= Socket}) ->
     Bin = case maps:get(zdeflate, D, undefined) of
-        undefined -> proto_ws:encode_frame(P, text);
+        undefined -> stargate_proto_ws:encode_frame(P, text);
         ZDeflate ->
-            P2 = proto_ws:deflate(ZDeflate, P),
-            proto_ws:encode_frame(P2, text_compress)
+            P2 = stargate_proto_ws:deflate(ZDeflate, P),
+            stargate_proto_ws:encode_frame(P2, text_compress)
     end,
     p_send(Socket, Bin, websocket, D);
 handle_event(info, {ws_send, {bin_compress, P}}, websocket, D=#{socket:= Socket}) ->
     Bin = case maps:get(zdeflate, D, undefined) of
-        undefined -> proto_ws:encode_frame(P, bin);
+        undefined -> stargate_proto_ws:encode_frame(P, bin);
         ZDeflate ->
-            P2 = proto_ws:deflate(ZDeflate, P),
-            proto_ws:encode_frame(P2, bin_compress)
+            P2 = stargate_proto_ws:deflate(ZDeflate, P),
+            stargate_proto_ws:encode_frame(P2, bin_compress)
     end,
     p_send(Socket, Bin, websocket, D).
 

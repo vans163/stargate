@@ -114,7 +114,8 @@ handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVe
     {Path, Query} = stargate_proto_http:path_and_query(RawPath),
     {Headers, Body} = stargate_proto_http:recv(Socket),
     Host = maps:get(<<"host">>, Headers, <<"*">>),
-    Upgrade = maps:get(<<"upgrade">>, Headers, undefined),
+    Upgrade_ = maps:get(<<"upgrade">>, Headers, undefined),
+    Upgrade = unicode:characters_to_binary(string:to_lower(unicode:characters_to_list(Upgrade_))),
 
     case Upgrade of
         undefined ->

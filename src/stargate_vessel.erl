@@ -29,7 +29,8 @@ init(Params) ->
 
 terminate({shutdown, tcp_closed}, _S, _D) -> ok;
 terminate(R, S, D) ->
-    io:format("~p:~n Terminated~n ~p~n ~p~n ~p~n", [?MODULE, R, S, D]).
+    Trace = erlang:get_stacktrace(),
+    io:format("~p:~n Terminated~n ~p~n ~p~n ~p~n ~p~n", [?MODULE, S, D, R, Trace]).
 
 
 

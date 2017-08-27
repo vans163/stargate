@@ -73,9 +73,9 @@ handle_event(info, {pass_socket, ClientSocket}, waiting_socket, D) ->
 
 
 %exit handling Maybe in the future we restart
-handle_event(info, {'EXIT', WSPid, _Reason}, S, D=#{ws_pid:= WSPid}) ->
+handle_event(info, {'EXIT', WSPid, _Reason}, _S, D=#{ws_pid:= WSPid}) ->
     {stop, {shutdown, tcp_closed}, D};
-handle_event(info, {'EXIT', _, _Reason}, S, D) ->
+handle_event(info, {'EXIT', _, _Reason}, _S, D) ->
     {stop, {shutdown, tcp_closed}, D};
     
 
@@ -105,6 +105,22 @@ handle_event(info,
 -> 
     {stop, {shutdown, tcp_closed}, D};
 
+%% Streaming and chunking
+handle_event(info, {send_chunk, Bin}, S, D) ->
+    TempState = maps:get(temp_state, D),
+    Socket = maps:get(socket, TempState),
+    case send(Socket, Bin) of
+        {error, _Error} -> 
+            %ELogger(Socket, <<"transport_send">>, Error),
+            {stop, {shutdown, tcp_closed}, D};
+
+        ok ->
+            {next_state, S, D, ?TIMEOUT_BASIC}
+    end;
+handle_event(info, close_connection, _S, D) ->
+    {stop, {shutdown, tcp_closed}, D};
+
+
 %http_request http, ssl + handle websocket
 handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVer}}, 
     S, D) when T == http; T == ssl 
@@ -121,29 +137,37 @@ handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVe
     case Upgrade of
         <<>> ->
             {Atom, _} = get_http_handler(Host, D),
-            {RCode, RHeaders, RBody, TempState2} = apply(Atom, http, 
-                [Type, Path, Query, Headers, Body, TempState#{socket=> Socket, host=> Host}]),
-
-            case maps:get(<<"connection">>, Headers, <<"close">>) of
-                <<"keep-alive">> -> 
-                    RHeaders2 = RHeaders#{<<"Connection">>=> <<"keep-alive">>},
-                    RespBin = stargate_proto_http:response(RCode, RHeaders2, RBody),
-                    case send(Socket, RespBin) of
-                        {error, _Error} -> 
-                            %ELogger(Socket, <<"transport_send">>, Error),
-                            {stop, {shutdown, tcp_closed}, D#{temp_state=> TempState2}};
-
-                        ok ->
-                            ok = setopts(Socket, [{active, once}, {packet, http_bin}]),
-                            {next_state, S, D#{temp_state=> TempState2}, ?TIMEOUT_BASIC}
-                    end;
-
-                _ -> 
+            case apply(Atom, http, [Type, Path, Query, Headers, Body, TempState#{socket=> Socket, host=> Host}]) of
+                {RCode, RHeaders, stream, TempState2} ->
                     RHeaders2 = RHeaders#{<<"Connection">>=> <<"close">>},
-                    RespBin = stargate_proto_http:response(RCode, RHeaders2, RBody),
+                    RespBin = stargate_proto_http:response(RCode, RHeaders2, stream),
                     send(Socket, RespBin),
-                    close(Socket),
-                    {stop, {shutdown, tcp_closed}, D#{temp_state=> TempState2}}
+                    % Because we will eventually get another http req if we keep-alive
+                    ok = setopts(Socket, [{active, once}, {packet, http_bin}]),
+                    {next_state, S, D#{temp_state=> TempState2}, ?TIMEOUT_BASIC};
+
+                {RCode, RHeaders, RBody, TempState2} ->
+                    case maps:get(<<"connection">>, Headers, <<"close">>) of
+                        <<"keep-alive">> -> 
+                            RHeaders2 = RHeaders#{<<"Connection">>=> <<"keep-alive">>},
+                            RespBin = stargate_proto_http:response(RCode, RHeaders2, RBody),
+                            case send(Socket, RespBin) of
+                                {error, _Error} -> 
+                                    %ELogger(Socket, <<"transport_send">>, Error),
+                                    {stop, {shutdown, tcp_closed}, D#{temp_state=> TempState2}};
+
+                                ok ->
+                                    ok = setopts(Socket, [{active, once}, {packet, http_bin}]),
+                                    {next_state, S, D#{temp_state=> TempState2}, ?TIMEOUT_BASIC}
+                            end;
+
+                        _ -> 
+                            RHeaders2 = RHeaders#{<<"Connection">>=> <<"close">>},
+                            RespBin = stargate_proto_http:response(RCode, RHeaders2, RBody),
+                            send(Socket, RespBin),
+                            close(Socket),
+                            {stop, {shutdown, tcp_closed}, D#{temp_state=> TempState2}}
+                    end
             end;
 
         <<"websocket">> ->

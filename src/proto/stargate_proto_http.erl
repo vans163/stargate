@@ -73,27 +73,37 @@ recv_body(Socket, ContLen) ->
 
 
 
-
-
 response(Code, B, C) when is_integer(Code) -> response(integer_to_binary(Code), B, C);
 response(Code, Headers, Body) ->
     Headers2 = case maps:get(<<"Connection">>, Headers, undefined) of
         undefined -> maps:put(<<"Connection">>, <<"close">>, Headers);
         _ -> Headers
     end,
-    
-    BodySize = integer_to_binary(byte_size(Body)),
-    HeadersFinal = maps:put(<<"Content-Length">>, BodySize, Headers2),
 
     Bin = <<"HTTP/1.1 ", Code/binary, " ", (response_code(Code))/binary, "\r\n">>,
-    HeaderBin = maps:fold(fun(K,V,Acc) ->
-            <<Acc/binary, K/binary, ": ", V/binary, "\r\n">>
-        end,
-        <<>>,
-        HeadersFinal
-    ),
-    <<Bin/binary, HeaderBin/binary, "\r\n", Body/binary>>
-    .
+    
+    case Body of
+        stream ->
+            HeaderBin = maps:fold(fun(K,V,Acc) ->
+                    <<Acc/binary, K/binary, ": ", V/binary, "\r\n">>
+                end,
+                <<>>,
+                Headers2
+            ),
+            <<Bin/binary, HeaderBin/binary, "\r\n", Body/binary>>;
+
+        _ ->
+            BodySize = integer_to_binary(byte_size(Body)),
+            HeadersFinal = maps:put(<<"Content-Length">>, BodySize, Headers2),
+
+            HeaderBin = maps:fold(fun(K,V,Acc) ->
+                    <<Acc/binary, K/binary, ": ", V/binary, "\r\n">>
+                end,
+                <<>>,
+                HeadersFinal
+            ),
+            <<Bin/binary, HeaderBin/binary, "\r\n", Body/binary>>
+    end.
 
 
 

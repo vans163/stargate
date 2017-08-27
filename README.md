@@ -34,6 +34,7 @@ master a.k.a 0.3-proc_lib
 - hot-loading new paths  
 - GZIP
 - SSL  
+- Streams API (Binary streaming)
 - Simple plugins
   - Templates
   - Static File Server
@@ -361,5 +362,30 @@ You may pass your own regex to match against using stargate_plugin:template/3:
 
 ```erlang
 stargate_plugin:template("{{(.*?)}}", HtmlBin, KeyValue).
+```
+</details>
+
+<details>
+<summary>Streams API (binary streaming)</summary>  
+
+Binary streaming for non-chunked encoding responses.
+
+```erlang
+
+-module(http_handler_stream).
+-compile(export_all).
+
+close_stream(Pid) ->
+    Pid ! close_connection.
+
+ticker(Pid) ->
+      timer:sleep(1000),
+      Pid ! {send_chunk, <<"hi">>},
+      ticker(Pid).
+
+http('GET', <<"/stream">>, _Query, _Headers, _Body, S) ->
+      io:format("Streaming.. ~p ~p ~n", [S, self()]),
+      spawn_link(http_handler_stream, ticker, [self()]),
+      {200, #{}, stream, S}.
 ```
 </details>

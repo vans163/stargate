@@ -90,7 +90,7 @@ response(Code, Headers, Body) ->
                 <<>>,
                 Headers2
             ),
-            <<Bin/binary, HeaderBin/binary, "\r\n", Body/binary>>;
+            <<Bin/binary, HeaderBin/binary, "\r\n">>;
 
         _ ->
             BodySize = integer_to_binary(byte_size(Body)),

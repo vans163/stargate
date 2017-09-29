@@ -48,7 +48,8 @@ get_ws_handler(Host, Path, Data) ->
     Hosts = maps:get(hosts, Params),
 
     WCardAtom = maps:get({ws, <<"*">>}, Hosts),
-    {_Atom, _Opts} = maps:get({ws, {Host, Path}}, Hosts, WCardAtom).
+    WCardAtomPath = maps:get({ws, {<<"*">>, Path}}, Hosts, WCardAtom),
+    {_Atom, _Opts} = maps:get({ws, {Host, Path}}, Hosts, WCardAtomPath).
 
 
 

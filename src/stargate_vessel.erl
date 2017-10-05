@@ -182,7 +182,8 @@ handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVe
                     close(Socket),
                     {stop, {shutdown, tcp_closed}, D};
 
-                {error, _} ->
+                {error, Err} ->
+                    io:format("WS Init Error: ~p~n", [Err]),
                     send(Socket, stargate_proto_http:response(<<"404">>, #{}, <<>>)),
                     close(Socket),
                     {stop, {shutdown, tcp_closed}, D};

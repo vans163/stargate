@@ -1,11 +1,11 @@
 # stargate
-Erlang customizable webserver
+Elixir fast and featured webserver
 
-<img src="http://i.imgur.com/8vmU7W4.jpg" width="960" height="600" />
+<img src="https://i.imgur.com/UKKzOYr.jpg" width="960" height="600" />
 
 ### Status
-Currently being tested for single page app and simple use cases.  
-No planned support for full HTTP spec.  
+Very fast and customizable.  
+No support for HTTP2.  
 
 ### Releases
 These releases are breaking changes.  
@@ -21,13 +21,19 @@ These releases are breaking changes.
   - Multiple acceptors
   - Query and Headers on websocket connection
 
-master a.k.a 0.3-proc_lib
+0.3-proc_lib
   - R19.2+ only
   - websocket connection becomes a gen_server process
   - keep_alive http connection currently under question
   - all headers normalized to lowercase binary
     - preparation for http/2
-    
+
+0.4-elixir
+  - requires Elixir now
+  - performance upgrades
+  - headers as lists now
+  - benchmarks
+  - streaming bodies
 
 ### Current Features
 - Simple support for HTTP  

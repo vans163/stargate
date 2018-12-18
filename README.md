@@ -46,14 +46,55 @@ These releases are breaking changes.
   - Static File Server
 - Websockets  
   - Compression  
-  - gen_server behavior
 
 ### Roadmap
-- half-closed sockets  
+- ~half-closed sockets~  
 - HTTP/2   ** Postponed until Websockets/other raw streaming is supported    
 - QUIC     ** Postponed until Websockets/other raw streaming is supported  
 
 ### Benchmarks
+
+```elixir
+git clone https://github.com/vans163/stargate
+
+#Intel(R) Xeon(R) CPU E5-2670 v2 @ 2.50GHz
+#10 physical cores and 10 hyperthreads to erlang
+
+iex --erl "+S 10 +sbt ts +sct L10-19C10-19P1N1" -S mix
+:erlang.system_info(:cpu_topology)
+
+#1 core per autocannon instance, which produces 45k reqs per second
+rm bench
+taskset -c 0 autocannon -c 10 -d 10 -S /tmp/star.sock http://test.com 2>> bench &
+taskset -c 1 autocannon -c 10 -d 10 -S /tmp/star.sock http://test.com 2>> bench &
+taskset -c 2 autocannon -c 10 -d 10 -S /tmp/star.sock http://test.com 2>> bench &
+taskset -c 3 autocannon -c 10 -d 10 -S /tmp/star.sock http://test.com 2>> bench &
+taskset -c 4 autocannon -c 10 -d 10 -S /tmp/star.sock http://test.com 2>> bench &
+taskset -c 5 autocannon -c 10 -d 10 -S /tmp/star.sock http://test.com 2>> bench &
+taskset -c 6 autocannon -c 10 -d 10 -S /tmp/star.sock http://test.com 2>> bench &
+taskset -c 7 autocannon -c 10 -d 10 -S /tmp/star.sock http://test.com 2>> bench &
+taskset -c 8 autocannon -c 10 -d 10 -S /tmp/star.sock http://test.com 2>> bench &
+taskset -c 9 autocannon -c 10 -d 10 -S /tmp/star.sock http://test.com 2>> bench &
+
+grep "k requests in " bench | cut -c 1-3 | python -c"import sys; print(sum(map(int, sys.stdin)))"
+grep "Latency" bench
+
+3299k requests per 11 seconds
+300k requests per second
+
+13ms average latency
+
+
+Cowboy:
+110k
+30ms average latency
+
+webserver = %{
+    ip: {:local, "/tmp/star.sock"},
+    port: 0,
+}
+_pid = Stargate.warp_in(webserver)
+```
 
 ### Thinness
 <details>

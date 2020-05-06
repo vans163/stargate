@@ -45,13 +45,13 @@ recv_headers_1(Socket) -> recv_headers_1(Socket, #{}, 0).
 recv_headers_1(_, _, Size) when Size > ?HTTP_MAX_HEADER_SIZE -> throw(max_header_size_exceeded);
 recv_headers_1(Socket, Map, Size) ->
     case recv(Socket, 0, ?TIMEOUT) of
-        {ok, {http_header, _, Key, undefined, Value}} when is_atom(Key) ->
+        {ok, {http_header, _, Key, _, Value}} when is_atom(Key) ->
             LKey = erlang:atom_to_list(Key),
             LKey2 = string:to_lower(LKey),
             BKey = unicode:characters_to_binary(LKey2),
             recv_headers_1(Socket, Map#{BKey=>Value}, Size + byte_size(Value));
 
-        {ok, {http_header, _, Key, undefined, Value}} ->
+        {ok, {http_header, _, Key, _, Value}} ->
             LKey = unicode:characters_to_list(Key),
             LKey2 = string:to_lower(LKey),
             BKey = unicode:characters_to_binary(LKey2),

@@ -130,13 +130,35 @@ handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVe
     TempState = maps:get(temp_state, D),
 
     {Path, Query} = stargate_proto_http:path_and_query(RawPath),
-    {Headers, Body} = stargate_proto_http:recv(Socket),
+    Headers = stargate_proto_http:recv_headers(Socket),
     Host = maps:get(<<"host">>, Headers, <<"*">>),
+    TransferEncoding = maps:get(<<"transfer-encoding">>, Headers, undefined),
     Upgrade_ = maps:get(<<"upgrade">>, Headers, <<>>),
     Upgrade = unicode:characters_to_binary(string:to_lower(unicode:characters_to_list(Upgrade_))),
 
-    case Upgrade of
-        <<>> ->
+    case {Upgrade, TransferEncoding} of
+        {<<>>, <<"chunked">>} ->
+            {WSAtom, _WSOpts} = get_ws_handler(maps:get(<<"host">>, Headers, <<"*">>), Path, D),
+            case apply(WSAtom, start_link, [{self(), Query, Headers, TempState#{socket=> Socket}}]) of
+                ignore ->
+                    send(Socket, stargate_proto_http:response(<<"404">>, #{}, <<>>)),
+                    close(Socket),
+                    {stop, {shutdown, tcp_closed}, D};
+
+                {error, Err} ->
+                    io:format("Chunked Init Error: ~p~n", [Err]),
+                    send(Socket, stargate_proto_http:response(<<"404">>, #{}, <<>>)),
+                    close(Socket),
+                    {stop, {shutdown, tcp_closed}, D};
+
+                {ok, WSPid} ->
+                    ok = setopts(Socket, [{active, once}, {packet, raw}, binary]),
+                    D3 = #{chunk_pid=> WSPid, chunk_buf=> <<>>},
+                    {next_state, chunked, D3, ?TIMEOUT_BASIC}
+            end;
+
+        {<<>>, _} ->
+            Body = stargate_proto_http:recv(Socket, Headers),
             {Atom, _} = get_http_handler(Host, D),
             case apply(Atom, http, [Type, Path, Query, Headers, Body, TempState#{socket=> Socket, host=> Host}]) of
                 {RCode, RHeaders, stream, TempState2} ->
@@ -171,7 +193,8 @@ handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVe
                     end
             end;
 
-        <<"websocket">> ->
+        {<<"websocket">>, _} ->
+            _Body = stargate_proto_http:recv(Socket, Headers),
             {WSAtom, WSOpts} = get_ws_handler(maps:get(<<"host">>, Headers, <<"*">>), Path, D),
 
             case apply(WSAtom, start_link, 
@@ -207,7 +230,6 @@ handle_event(info, {T, Socket, {http_request, Type, {abs_path, RawPath}, _HttpVe
             end
 
     end;
-
 
 
 %%% Websocket stuff
@@ -246,6 +268,25 @@ handle_event(info, {T, Socket, Bin}, websocket, D=#{ws_pid:= WSPid, ws_buf:= WSB
                 {next_state, websocket, DD#{ws_buf=> Buffer}, ?TIMEOUT_BASIC}
 
     end)(stargate_proto_ws:decode_frame(<<WSBuf/binary, Bin/binary>>), D);
+
+handle_event(info, {T, Socket, Bin}, chunked, D=#{chunk_pid:= WSPid, chunk_buf:= WSBuf}) 
+    when T == tcp; T == ssl 
+->
+    ok = setopts(Socket, [{active, once}, binary]),
+    case recv_body_chunked(<<WSBuf/binary, Bin/binary>>, <<>>) of
+        done ->
+            send(Socket, stargate_proto_http:response(<<"200">>, #{}, <<>>)),
+            close(Socket),
+            {stop, {shutdown, tcp_closed}, D};
+
+        {cont, Buf, <<>>} ->
+            {next_state, chunked, D#{chunk_buf=> Buf}, ?TIMEOUT_BASIC};
+
+        {cont, Buf, Acc} ->
+            WSPid ! {chunk, Acc},
+            {next_state, chunked, D#{chunk_buf=> Buf}, ?TIMEOUT_BASIC}
+    end;
+
 
 handle_event(info, ws_ping, websocket, D=#{socket:= Socket}) ->
     erlang:send_after(?WS_PING_INTERVAL, self(), ws_ping),
@@ -287,4 +328,24 @@ p_send(Socket, Bin, S, D=#{params:= #{error_logger:= _ELogger}}) ->
             {stop, {shutdown, tcp_closed}, D}
     end.
 
-
+recv_body_chunked(Buf, Acc) ->
+    case recv_body_chunked_1(Buf) of
+        {_, _, done} -> done;
+        {_, _, cont} -> {cont, Buf, Acc};
+        {Buf2, Piece, piece} -> 
+            recv_body_chunked(Buf2, <<Acc/binary, Piece/binary>>)
+    end.
+recv_body_chunked_1(Buf) ->
+    case binary:match(Buf, <<"\r\n">>) of
+        nomatch -> {Buf, <<>>, cont};
+        {0, _} -> {Buf, <<>>, done};
+        {Pos, _} ->
+            ChunkSize = binary:part(Buf, 0, Pos),
+            ChunkSizeInt = httpd_util:hexlist_to_integer(binary_to_list(ChunkSize)),
+            case Buf of
+                _ when ChunkSizeInt == 0 -> {Buf, <<>>, done};
+                <<_:Pos/binary,_,_,Acc1:ChunkSizeInt/binary,_,_,R/binary>> ->
+                    {R, Acc1, piece};
+                _ -> {Buf, <<>>, cont}
+            end
+    end.

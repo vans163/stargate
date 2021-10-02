@@ -29,8 +29,7 @@ path_and_query(Path) ->
 
 
 
-recv(Socket) ->
-    HttpHeaders = recv_headers(Socket),
+recv(Socket, HttpHeaders) ->
     ContLen = maps:get(<<"content-length">>, HttpHeaders, undefined),
     %TransEncoding = maps:get('Transfer-Encoding', HttpHeaders, undefined),
     Body = recv_body(Socket, ContLen),

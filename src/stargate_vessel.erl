@@ -257,6 +257,7 @@ handle_event(info, {T, Socket, Bin}, websocket, D=#{ws_pid:= WSPid, ws_buf:= WSB
                                 <<Payload/binary,0,0,255,255>>))
                 end,
                 FrameType = case Opcode of
+                    0 -> bin;
                     1 -> text;
                     2 -> bin
                 end,

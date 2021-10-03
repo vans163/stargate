@@ -109,7 +109,7 @@ decode_frame(Chunk= <<_Fin:1, RSV1:1, _RSV2:1, _RSV3:1,
     
     %unimplemented. Only firefox splits frames after 32kb
     %http://lucumr.pocoo.org/2012/9/24/websockets-101/
-    true = 0 /= Opcode,
+    %true = 0 /= Opcode,
 
     case Rest of
         <<0:1, 127:7, PLen:64, P:PLen/binary, R/binary>> ->

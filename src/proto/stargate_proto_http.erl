@@ -31,9 +31,7 @@ path_and_query(Path) ->
 
 recv(Socket, HttpHeaders) ->
     ContLen = maps:get(<<"content-length">>, HttpHeaders, undefined),
-    %TransEncoding = maps:get('Transfer-Encoding', HttpHeaders, undefined),
-    Body = recv_body(Socket, ContLen),
-    {HttpHeaders, Body}.
+    recv_body(Socket, ContLen).
 
 recv_headers(Socket) ->
     ok = setopts(Socket, [{active, false}, {packet, httph_bin}]),
